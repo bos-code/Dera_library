@@ -1,1 +1,20 @@
-{"expo":{"name":"Dera Library","slug":"dera-library","version":"0.1.0","orientation":"portrait","scheme":"deralibrary","userInterfaceStyle":"automatic","newArchEnabled":true,"android":{"package":"com.boscode.deralibrary"},"plugins":["expo-router","expo-sqlite"]}}
+{
+  "expo": {
+    "name": "Dera Library",
+    "slug": "dera-library",
+    "version": "0.2.0",
+    "orientation": "default",
+    "scheme": "deralibrary",
+    "userInterfaceStyle": "automatic",
+    "backgroundColor": "#F7F5F0",
+    "android": {
+      "package": "com.boscode.deralibrary",
+      "edgeToEdgeEnabled": true,
+      "allowBackup": true
+    },
+    "plugins": [
+      "expo-router",
+      ["expo-sqlite", { "enableFTS": true }]
+    ]
+  }
+}
