@@ -1,0 +1,1 @@
+import {requireNativeModule} from "expo";import type{ScannedDocument}from "@/types/document";type Scanner={scanDocuments():Promise<ScannedDocument[]>};export async function scanDocuments(){return requireNativeModule<Scanner>("DeraDocumentScanner").scanDocuments()}

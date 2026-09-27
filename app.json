@@ -1,0 +1,1 @@
+{"expo":{"name":"Dera Library","slug":"dera-library","version":"0.1.0","orientation":"portrait","scheme":"deralibrary","userInterfaceStyle":"automatic","newArchEnabled":true,"android":{"package":"com.boscode.deralibrary"},"plugins":["expo-router","expo-sqlite"]}}
