@@ -1,26 +1,9 @@
 package expo.modules.deradocumentscanner
-
 import android.content.ContentUris
+import android.content.Intent
+import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
-
-class DeraDocumentScannerModule : Module() {
-  override fun definition() = ModuleDefinition {
-    Name("DeraDocumentScanner")
-    AsyncFunction("scanDocuments") {
-      val context = appContext.reactContext ?: return@AsyncFunction emptyList<Map<String, Any?>>()
-      val resolver = context.contentResolver
-      val collection = MediaStore.Files.getContentUri("external")
-      val projection = mutableListOf(MediaStore.Files.FileColumns._ID,MediaStore.Files.FileColumns.DISPLAY_NAME,MediaStore.Files.FileColumns.MIME_TYPE,MediaStore.Files.FileColumns.SIZE,MediaStore.Files.FileColumns.DATE_MODIFIED).apply { if(Build.VERSION.SDK_INT>=Build.VERSION_CODES.Q)add(MediaStore.Files.FileColumns.RELATIVE_PATH) }.toTypedArray()
-      val allowed=setOf("pdf","doc","docx","odt","xls","xlsx","ods","csv","ppt","pptx","odp","txt","md","rtf","epub")
-      val out=mutableListOf<Map<String,Any?>>()
-      resolver.query(collection,projection,null,null,MediaStore.Files.FileColumns.DATE_MODIFIED+" DESC")?.use { c ->
-        val id=c.getColumnIndexOrThrow(MediaStore.Files.FileColumns._ID);val name=c.getColumnIndexOrThrow(MediaStore.Files.FileColumns.DISPLAY_NAME);val mime=c.getColumnIndexOrThrow(MediaStore.Files.FileColumns.MIME_TYPE);val size=c.getColumnIndexOrThrow(MediaStore.Files.FileColumns.SIZE);val modified=c.getColumnIndexOrThrow(MediaStore.Files.FileColumns.DATE_MODIFIED);val path=if(Build.VERSION.SDK_INT>=Build.VERSION_CODES.Q)c.getColumnIndex(MediaStore.Files.FileColumns.RELATIVE_PATH) else -1
-        while(c.moveToNext()){val n=c.getString(name)?:continue;val ext=n.substringAfterLast(".","").lowercase();if(ext !in allowed)continue;out.add(mapOf("uri" to ContentUris.withAppendedId(collection,c.getLong(id)).toString(),"name" to n,"extension" to ext,"mimeType" to (c.getString(mime)?:"application/octet-stream"),"size" to c.getLong(size),"modifiedAt" to c.getLong(modified)*1000,"folder" to if(path>=0)c.getString(path) else null))}
-      }
-      out
-    }
-  }
-}
+class DeraDocumentScannerModule:Module(){override fun definition()=ModuleDefinition{Name("DeraDocumentScanner");AsyncFunction("scanDocuments"){val context=appContext.reactContext?:return@AsyncFunction emptyList<Map<String,Any?>>();val resolver=context.contentResolver;val collection=MediaStore.Files.getContentUri("external");val projection=mutableListOf(MediaStore.Files.FileColumns._ID,MediaStore.Files.FileColumns.DISPLAY_NAME,MediaStore.Files.FileColumns.MIME_TYPE,MediaStore.Files.FileColumns.SIZE,MediaStore.Files.FileColumns.DATE_MODIFIED).apply{if(Build.VERSION.SDK_INT>=Build.VERSION_CODES.Q)add(MediaStore.Files.FileColumns.RELATIVE_PATH)}.toTypedArray();val allowed=setOf("pdf","doc","docx","odt","xls","xlsx","ods","csv","ppt","pptx","odp","txt","md","rtf","epub");val out=mutableListOf<Map<String,Any?>>();resolver.query(collection,projection,null,null,MediaStore.Files.FileColumns.DATE_MODIFIED+" DESC")?.use{c->val id=c.getColumnIndexOrThrow(MediaStore.Files.FileColumns._ID);val name=c.getColumnIndexOrThrow(MediaStore.Files.FileColumns.DISPLAY_NAME);val mime=c.getColumnIndexOrThrow(MediaStore.Files.FileColumns.MIME_TYPE);val size=c.getColumnIndexOrThrow(MediaStore.Files.FileColumns.SIZE);val modified=c.getColumnIndexOrThrow(MediaStore.Files.FileColumns.DATE_MODIFIED);val path=if(Build.VERSION.SDK_INT>=Build.VERSION_CODES.Q)c.getColumnIndex(MediaStore.Files.FileColumns.RELATIVE_PATH)else-1;while(c.moveToNext()){val n=c.getString(name)?:continue;val ext=n.substringAfterLast(".","").lowercase();if(ext !in allowed)continue;out.add(mapOf("uri" to ContentUris.withAppendedId(collection,c.getLong(id)).toString(),"name" to n,"extension" to ext,"mimeType" to(c.getString(mime)?:"application/octet-stream"),"size" to c.getLong(size),"modifiedAt" to c.getLong(modified)*1000,"folder" to if(path>=0)c.getString(path)else null))}};out};AsyncFunction("openDocument"){uri:String,mimeType:String->val context=appContext.reactContext?:return@AsyncFunction false;val intent=Intent(Intent.ACTION_VIEW).apply{setDataAndType(Uri.parse(uri),mimeType);addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)};if(intent.resolveActivity(context.packageManager)==null)return@AsyncFunction false;context.startActivity(intent);true}}}
