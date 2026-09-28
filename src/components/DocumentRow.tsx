@@ -1,7 +1,7 @@
 import { memo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { formatRelativeDate, formatSize } from "@/lib/format";
-import { font, radius, spacing, useTheme } from "@/theme";
+import { radius, spacing, type, useTheme } from "@/theme";
 import type { DocumentRecord } from "@/types/document";
 import { TypeBadge } from "./TypeBadge";
 import { Icon } from "./ui";
@@ -83,13 +83,13 @@ const styles = StyleSheet.create({
   },
   check: { width: 24, height: 24, borderRadius: 12, borderWidth: 2, alignItems: "center", justifyContent: "center" },
   body: { flex: 1, gap: 2 },
-  name: { fontSize: font.body, fontWeight: "600", lineHeight: 21 },
+  name: { ...type.bodyStrong, lineHeight: 21 },
   metaRow: { flexDirection: "row", alignItems: "center", gap: 6 },
-  meta: { fontSize: font.small, flexShrink: 1 },
-  folder: { fontSize: font.tiny },
+  meta: { ...type.small, flexShrink: 1 },
+  folder: { ...type.tiny },
   status: {
+    ...type.tiny,
     fontSize: 11,
-    fontWeight: "700",
     paddingHorizontal: 6,
     paddingVertical: 1,
     borderRadius: radius.sm,

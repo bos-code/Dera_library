@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { KeyboardAvoidingView, Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { font, radius, spacing, useTheme } from "@/theme";
+import { corner, spacing, type, useTheme } from "@/theme";
 
 /** Bottom sheet built on Modal: slides up, dismisses on backdrop tap or back button. */
 export function Sheet({
@@ -51,15 +51,12 @@ const styles = StyleSheet.create({
   sheet: {
     marginTop: "auto",
     maxHeight: "85%",
-    borderTopLeftRadius: radius.lg + 8,
-    borderTopRightRadius: radius.lg + 8,
+    ...corner.sheet,
     paddingTop: spacing.sm,
   },
   handle: { alignSelf: "center", width: 40, height: 4, borderRadius: 2, marginBottom: spacing.sm },
   title: {
-    fontSize: font.heading,
-    fontWeight: "700",
-    fontFamily: font.display,
+    ...type.heading,
     paddingHorizontal: spacing.xl,
     paddingBottom: spacing.md,
   },

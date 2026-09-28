@@ -1,6 +1,6 @@
 import { forwardRef } from "react";
 import { Pressable, StyleSheet, TextInput, View } from "react-native";
-import { font, radius, spacing, useTheme } from "@/theme";
+import { corner, spacing, type, useTheme } from "@/theme";
 import { Icon } from "./ui";
 
 interface Props {
@@ -44,8 +44,8 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     paddingHorizontal: spacing.md,
     minHeight: 50,
-    borderRadius: radius.lg,
+    ...corner.leaf,
     borderWidth: StyleSheet.hairlineWidth,
   },
-  input: { flex: 1, fontSize: font.body, paddingVertical: 10 },
+  input: { flex: 1, ...type.body, paddingVertical: 10 },
 });

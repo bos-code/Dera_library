@@ -12,13 +12,17 @@
     "format": "prettier --write \"app/**/*.{ts,tsx}\" \"src/**/*.{ts,tsx}\" \"modules/**/*.ts\""
   },
   "dependencies": {
+    "@expo-google-fonts/fraunces": "^0.4.1",
+    "@expo-google-fonts/manrope": "^0.4.2",
     "@expo/metro-runtime": "~57.0.16",
     "@expo/vector-icons": "^15.0.2",
     "@shopify/flash-list": "2.0.2",
     "expo": "~57.0.25",
+    "expo-blur": "~57.0.3",
     "expo-constants": "~57.0.19",
     "expo-dev-client": "~57.0.19",
     "expo-font": "~57.0.4",
+    "expo-linear-gradient": "~57.0.2",
     "expo-linking": "~57.0.11",
     "expo-router": "~57.0.23",
     "expo-sqlite": "~57.0.3",
@@ -37,6 +41,6 @@
     "@types/node": "^22.0.0",
     "@types/react": "~19.2.0",
     "prettier": "^3.3.0",
-    "typescript": "~5.9.2"
+    "typescript": "~6.0.3"
   }
 }

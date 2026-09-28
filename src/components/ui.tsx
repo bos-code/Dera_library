@@ -1,7 +1,7 @@
-import { MaterialCommunityIcons } from "@expo/vector-icons";
+import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import type { ComponentProps, ReactNode } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from "react-native";
-import { font, radius, spacing, useTheme } from "@/theme";
+import { corner, spacing, type, useTheme } from "@/theme";
 
 export type IconName = ComponentProps<typeof MaterialCommunityIcons>["name"];
 
@@ -211,26 +211,26 @@ export function ListRow({
 const styles = StyleSheet.create({
   button: {
     minHeight: 48,
-    borderRadius: radius.md,
+    ...corner.shelf,
     paddingHorizontal: spacing.lg,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: spacing.sm,
   },
-  buttonText: { fontSize: font.body, fontWeight: "600" },
+  buttonText: { ...type.bodyStrong },
   iconButton: { width: 48, height: 48, alignItems: "center", justifyContent: "center" },
   chip: {
     minHeight: 36,
     paddingHorizontal: 14,
-    borderRadius: radius.pill,
+    ...corner.nib,
     borderWidth: 1,
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
   },
-  chipText: { fontSize: font.small, fontWeight: "600" },
-  chipCount: { fontSize: font.tiny, fontWeight: "600" },
+  chipText: { ...type.smallStrong },
+  chipCount: { ...type.tiny },
   empty: { alignItems: "center", paddingHorizontal: spacing.xl, paddingVertical: 48, gap: spacing.sm },
   emptyIcon: {
     width: 72,
@@ -240,8 +240,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginBottom: spacing.sm,
   },
-  emptyTitle: { fontSize: font.heading, fontWeight: "700", textAlign: "center", fontFamily: font.display },
-  emptyMessage: { fontSize: font.body, textAlign: "center", lineHeight: 22 },
+  emptyTitle: { ...type.heading, textAlign: "center" },
+  emptyMessage: { ...type.body, textAlign: "center" },
   sectionRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -250,8 +250,8 @@ const styles = StyleSheet.create({
     paddingTop: spacing.xl,
     paddingBottom: spacing.sm,
   },
-  section: { fontSize: font.tiny, fontWeight: "700", letterSpacing: 1 },
-  card: { borderRadius: radius.lg, borderWidth: StyleSheet.hairlineWidth, overflow: "hidden" },
+  section: { ...type.label },
+  card: { ...corner.leaf, borderWidth: StyleSheet.hairlineWidth, overflow: "hidden" },
   listRow: {
     minHeight: 56,
     flexDirection: "row",
@@ -260,6 +260,6 @@ const styles = StyleSheet.create({
     paddingRight: spacing.lg,
     paddingVertical: spacing.md,
   },
-  listTitle: { fontSize: font.body, fontWeight: "600" },
-  listSubtitle: { fontSize: font.small, marginTop: 2 },
+  listTitle: { ...type.bodyStrong },
+  listSubtitle: { ...type.small, marginTop: 2 },
 });

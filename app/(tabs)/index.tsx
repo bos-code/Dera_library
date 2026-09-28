@@ -12,7 +12,7 @@ import { plural } from "@/lib/format";
 import { useDebounced, useQuery } from "@/lib/useQuery";
 import { scanLibrary } from "@/services/scan";
 import { getState, setState, useAppState } from "@/state/store";
-import { font, spacing, useTheme } from "@/theme";
+import { corner, spacing, type, useTheme } from "@/theme";
 import type { LibraryView, SortMode } from "@/types/document";
 
 const SORTS: Array<{
@@ -69,7 +69,7 @@ export default function LibraryScreen() {
           <Text accessibilityRole="header" style={[styles.title, { color: t.text }]}>
             Library
           </Text>
-          <Text style={{ color: t.textMuted, fontSize: font.small }}>
+          <Text style={[type.small, { color: t.textMuted }]}>
             {stats ? plural(stats.available, "document") : " "}
             {stats?.missing ? ` · ${stats.missing + stats.revoked} unavailable` : ""}
           </Text>
@@ -86,7 +86,7 @@ export default function LibraryScreen() {
             style={[styles.notice, { backgroundColor: t.surfaceAlt }]}
           >
             <Icon name="folder-lock-outline" size={20} color={t.textMuted} />
-            <Text style={{ flex: 1, color: t.textMuted, fontSize: font.small }}>
+            <Text style={[type.small, { flex: 1, color: t.textMuted }]}>
               Some documents may be hidden. Allow all-files access or add folders to find everything.
             </Text>
             <Icon name="chevron-right" size={20} color={t.textFaint} />
@@ -115,7 +115,7 @@ export default function LibraryScreen() {
         ))}
       </ScrollView>
       <View style={styles.listMeta}>
-        <Text style={{ color: t.textMuted, fontSize: font.small }}>{docs ? plural(docs.length, "result") : " "}</Text>
+        <Text style={[type.small, { color: t.textMuted }]}>{docs ? plural(docs.length, "result") : " "}</Text>
         {filters.view !== "recent" ? (
           <Pressable
             onPress={cycleSort}
@@ -125,7 +125,7 @@ export default function LibraryScreen() {
             hitSlop={8}
           >
             <Icon name={sort.icon} size={18} color={t.primary} />
-            <Text style={{ color: t.primary, fontWeight: "600", fontSize: font.small }}>{sort.label}</Text>
+            <Text style={[type.smallStrong, { color: t.primary }]}>{sort.label}</Text>
           </Pressable>
         ) : null}
       </View>
@@ -173,8 +173,8 @@ export default function LibraryScreen() {
 
 const styles = StyleSheet.create({
   titleRow: { flexDirection: "row", alignItems: "center", paddingLeft: spacing.lg, paddingRight: spacing.xs },
-  title: { fontSize: font.title, fontWeight: "700", fontFamily: font.display },
-  notice: { flexDirection: "row", alignItems: "center", gap: spacing.sm, padding: spacing.md, borderRadius: 12 },
+  title: { ...type.title },
+  notice: { flexDirection: "row", alignItems: "center", gap: spacing.sm, padding: spacing.md, ...corner.petal },
   chips: { gap: spacing.sm, paddingHorizontal: spacing.lg, alignItems: "center" },
   divider: { width: 1, height: 24, marginHorizontal: 2 },
   listMeta: {

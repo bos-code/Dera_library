@@ -4,6 +4,8 @@
     "strict": true,
     "allowImportingTsExtensions": true,
     "baseUrl": ".",
+    "ignoreDeprecations": "6.0",
+    "types": ["node"],
     "paths": {
       "@/*": [
         "src/*"

@@ -1,6 +1,6 @@
 import { StyleSheet, Text, View } from "react-native";
 import { TYPE_LABEL } from "@/lib/fileTypes";
-import { useTheme } from "@/theme";
+import { corner, type, useTheme } from "@/theme";
 import type { DocumentType } from "@/types/document";
 import { Icon, type IconName } from "./ui";
 
@@ -32,6 +32,6 @@ export function TypeBadge({ type, extension, size = 48 }: { type: DocumentType; 
 }
 
 const styles = StyleSheet.create({
-  badge: { borderRadius: 10, alignItems: "center", justifyContent: "center" },
-  ext: { fontWeight: "800", letterSpacing: 0.5, marginTop: -1 },
+  badge: { ...corner.shelf, alignItems: "center", justifyContent: "center" },
+  ext: { fontFamily: type.label.fontFamily, letterSpacing: 0.5, marginTop: -1 },
 });

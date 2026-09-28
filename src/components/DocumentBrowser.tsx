@@ -8,8 +8,9 @@ import { setFavorite } from "@/db/activity";
 import { addDocumentsToCollection } from "@/db/collections";
 import { tagDocuments } from "@/db/tags";
 import { plural } from "@/lib/format";
+import { useTabBarHeight } from "@/lib/useTabBarHeight";
 import { notifyLibraryChanged } from "@/state/store";
-import { font, radius, spacing, useTheme } from "@/theme";
+import { corner, spacing, type, useTheme } from "@/theme";
 import type { DocumentRecord } from "@/types/document";
 import { CollectionPickerSheet } from "./CollectionPickerSheet";
 import { DocumentRow } from "./DocumentRow";
@@ -43,6 +44,7 @@ export function DocumentBrowser({
 }) {
   const t = useTheme();
   const insets = useSafeAreaInsets();
+  const tabBarHeight = useTabBarHeight();
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [sheet, setSheet] = useState<"collections" | "tags" | null>(null);
   const selecting = selected.size > 0;
@@ -109,7 +111,8 @@ export function DocumentBrowser({
         )}
         ListHeaderComponent={header}
         ListEmptyComponent={empty}
-        contentContainerStyle={{ paddingBottom: selecting ? 120 : 32 }}
+        // The tab bar floats over the list, so its height has to be paid back as padding.
+        contentContainerStyle={{ paddingBottom: tabBarHeight + (selecting ? 120 : spacing.xxl) }}
         keyboardDismissMode="on-drag"
         keyboardShouldPersistTaps="handled"
         refreshControl={
@@ -127,7 +130,11 @@ export function DocumentBrowser({
         <Animated.View
           entering={SlideInDown.duration(220)}
           exiting={SlideOutDown.duration(180)}
-          style={[styles.bar, { backgroundColor: t.surface, borderColor: t.border, bottom: insets.bottom + spacing.md }]}
+          // Sits above the floating tab bar, which already accounts for the safe-area inset.
+          style={[
+            styles.bar,
+            { backgroundColor: t.surface, borderColor: t.border, bottom: (tabBarHeight || insets.bottom) + spacing.md },
+          ]}
         >
           <IconButton icon="close" label="Clear selection" onPress={() => setSelected(new Set())} />
           <Text style={[styles.count, { color: t.text }]} accessibilityLiveRegion="polite">
@@ -194,10 +201,10 @@ const styles = StyleSheet.create({
     right: spacing.md,
     flexDirection: "row",
     alignItems: "center",
-    borderRadius: radius.lg,
+    ...corner.leaf,
     borderWidth: StyleSheet.hairlineWidth,
     elevation: 8,
     paddingHorizontal: 4,
   },
-  count: { flex: 1, fontSize: font.small, fontWeight: "700" },
+  count: { flex: 1, ...type.smallStrong },
 });

@@ -1,3 +1,12 @@
+// Per-weight subpaths only. Importing the package root pulls in every weight it ships
+// (25 TTFs across these two families) and bloats the APK.
+import { Fraunces_600SemiBold } from "@expo-google-fonts/fraunces/600SemiBold";
+import { Fraunces_700Bold } from "@expo-google-fonts/fraunces/700Bold";
+import { Manrope_400Regular } from "@expo-google-fonts/manrope/400Regular";
+import { Manrope_500Medium } from "@expo-google-fonts/manrope/500Medium";
+import { Manrope_600SemiBold } from "@expo-google-fonts/manrope/600SemiBold";
+import { Manrope_700Bold } from "@expo-google-fonts/manrope/700Bold";
+import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import * as SystemUI from "expo-system-ui";
@@ -5,6 +14,7 @@ import { useEffect, useState } from "react";
 import { AppState, Text, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import { AuroraField, GradientCanvas } from "@/components/glass";
 import { getDb, getMeta } from "@/db/database";
 import { refreshAccess } from "@/services/access";
 import { scanLibrary } from "@/services/scan";
@@ -17,15 +27,20 @@ function ThemedStack() {
     void SystemUI.setBackgroundColorAsync(t.background);
   }, [t.background]);
   return (
-    <>
+    // One canvas for the whole app: every screen is transparent and composites onto this, so the
+    // gradient and aurora never re-render on navigation.
+    <GradientCanvas>
+      <AuroraField />
       <StatusBar style={t.dark ? "light" : "dark"} />
       <Stack
         screenOptions={{
-          headerStyle: { backgroundColor: t.background },
+          // Transparent background, but NOT headerTransparent: the header keeps its layout slot so
+          // screen content is not pushed underneath it. The canvas shows through regardless.
+          headerStyle: { backgroundColor: "transparent" },
           headerTintColor: t.text,
-          headerTitleStyle: { fontFamily: font.display, fontWeight: "700" },
+          headerTitleStyle: { fontFamily: font.displaySoft },
           headerShadowVisible: false,
-          contentStyle: { backgroundColor: t.background },
+          contentStyle: { backgroundColor: "transparent" },
           animation: "slide_from_right",
         }}
       >
@@ -37,13 +52,22 @@ function ThemedStack() {
         <Stack.Screen name="add-documents" options={{ title: "Add documents", presentation: "modal" }} />
         <Stack.Screen name="missing" options={{ title: "Missing documents" }} />
       </Stack>
-    </>
+    </GradientCanvas>
   );
 }
 
 export default function RootLayout() {
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Bundled with the app, so this resolves on first frame offline - no network, no font flash.
+  const [fontsLoaded] = useFonts({
+    Fraunces_600SemiBold,
+    Fraunces_700Bold,
+    Manrope_400Regular,
+    Manrope_500Medium,
+    Manrope_600SemiBold,
+    Manrope_700Bold,
+  });
 
   useEffect(() => {
     (async () => {
@@ -72,7 +96,9 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-        <ThemeProvider>{error ? <StartupError message={error} /> : ready ? <ThemedStack /> : <Splash />}</ThemeProvider>
+        <ThemeProvider>
+          {error ? <StartupError message={error} /> : ready && fontsLoaded ? <ThemedStack /> : <Splash />}
+        </ThemeProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );
