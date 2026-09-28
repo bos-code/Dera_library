@@ -9,12 +9,16 @@
     "backgroundColor": "#F7F5F0",
     "android": {
       "package": "com.boscode.deralibrary",
-      "edgeToEdgeEnabled": true,
       "allowBackup": true
     },
     "plugins": [
       "expo-router",
       ["expo-sqlite", { "enableFTS": true }]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "f67b3d73-96a2-4cdc-bb8b-0dbfb136a366"
+      }
+    }
   }
 }
