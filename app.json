@@ -117,7 +117,11 @@
             }
           ]
         }
-      ]
+      ],
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#E3DDDB"
+      }
     },
     "plugins": [
       "expo-router",
@@ -126,12 +130,26 @@
         {
           "enableFTS": true
         }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/logo.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#E3DDDB",
+          "dark": {
+            "image": "./assets/logo.png",
+            "backgroundColor": "#0D0F0D"
+          }
+        }
       ]
     ],
     "extra": {
       "eas": {
         "projectId": "f67b3d73-96a2-4cdc-bb8b-0dbfb136a366"
       }
-    }
+    },
+    "icon": "./assets/icon.png"
   }
 }

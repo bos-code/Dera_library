@@ -1,6 +1,6 @@
 import { router } from "expo-router";
 import { useState } from "react";
-import { Alert, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, Image, ScrollView, StyleSheet, Text, View } from "react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { FlatGlass, Glass } from "@/components/glass";
@@ -84,6 +84,7 @@ export default function Onboarding() {
       >
         {/* ---------------------------------------------------------- masthead */}
         <Animated.View entering={enter(0)}>
+          <Image source={require("../assets/logo.png")} style={styles.logo} accessibilityLabel="Dera Library logo" />
           <View style={styles.eyebrowRow}>
             <View style={[styles.eyebrowRule, { backgroundColor: t.primary, transform: [{ skewX: skew.accent }] }]} />
             <Text style={[type.label, { color: t.primary }]}>ON DEVICE · OFFLINE</Text>
@@ -158,6 +159,7 @@ export default function Onboarding() {
 }
 
 const styles = StyleSheet.create({
+  logo: { width: 72, height: 72, borderRadius: 18, marginBottom: spacing.lg },
   eyebrowRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm, marginBottom: spacing.lg },
   eyebrowRule: { width: 26, height: 3, borderRadius: 2 },
   headline: { marginTop: spacing.xs },
