@@ -1,5 +1,6 @@
 import { recordOpen } from "@/db/activity";
 import { haptic } from "@/lib/haptics";
+import { logError } from "./log";
 import { beginReading } from "./readingSession";
 import { setDocumentStatus } from "@/db/documents";
 import { NativeUnavailableError, scanner } from "@/native/scanner";
@@ -61,6 +62,7 @@ export async function openDocument(doc: DocumentRecord, options: { trackReading?
     }
   } catch (e) {
     if (e instanceof NativeUnavailableError) return { ok: false, title: "Not available", message: e.message };
+    logError(`Opening ${doc.extension} failed`, e);
     return { ok: false, title: "Couldn't open document", message: e instanceof Error ? e.message : "Unknown error" };
   }
 }

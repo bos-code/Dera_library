@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <color name="dera_widget_bg">#191B18</color>
+  <color name="dera_widget_text">#F2EFE6</color>
+  <color name="dera_widget_muted">#ADA99E</color>
+  <color name="dera_widget_accent">#8FD0B6</color>
+</resources>

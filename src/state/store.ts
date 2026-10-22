@@ -64,6 +64,8 @@ export interface AppState {
   toast: Toast | null;
   /** Background reading of document text for search; null when idle. */
   indexing: { done: number; total: number } | null;
+  /** Rescan by itself when storage changes or the app returns (Settings). */
+  autoRescan: boolean;
   access: StorageAccess | null;
   scanning: boolean;
   progress: ScanProgress | null;
@@ -90,6 +92,7 @@ let state: AppState = {
   focus: null,
   toast: null,
   indexing: null,
+  autoRescan: true,
   access: null,
   scanning: false,
   progress: null,

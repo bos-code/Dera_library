@@ -213,6 +213,17 @@ CREATE TRIGGER documents_fts_personal AFTER UPDATE OF custom_title, note ON docu
 END;
 `;
 
+/** v10: local-only diagnostics log (never sent anywhere; the user can export it). */
+const v10 = `
+CREATE TABLE app_log(
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  at INTEGER NOT NULL,
+  level TEXT NOT NULL,
+  message TEXT NOT NULL,
+  detail TEXT
+);
+`;
+
 export const migrations: Migration[] = [
   { version: 1, up: (db) => db.execAsync(v1) },
   { version: 2, rebuildsTables: true, up: (db) => db.execAsync(v2) },
@@ -223,6 +234,7 @@ export const migrations: Migration[] = [
   { version: 7, optional: true, up: (db) => db.execAsync(v7) },
   { version: 8, up: (db) => db.execAsync(v8) },
   { version: 9, optional: true, up: (db) => db.execAsync(v9) },
+  { version: 10, up: (db) => db.execAsync(v10) },
 ];
 
 export async function migrate(db: SQLiteDatabase): Promise<void> {

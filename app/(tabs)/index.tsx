@@ -1,6 +1,6 @@
-import { router } from "expo-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { router, useLocalSearchParams } from "expo-router";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { DocumentBrowser } from "@/components/DocumentBrowser";
 import { FocusCard } from "@/components/Focus";
@@ -62,6 +62,15 @@ export default function LibraryScreen() {
   const scanning = useAppState((s) => s.scanning);
   const access = useAppState((s) => s.access);
   const [text, setText] = useState(filters.text);
+  const searchRef = useRef<TextInput>(null);
+  // "Search" app-icon shortcut: deralibrary:///?search=1 lands here with the keyboard up.
+  const { search } = useLocalSearchParams<{ search?: string }>();
+  useEffect(() => {
+    if (search !== "1") return;
+    const id = setTimeout(() => searchRef.current?.focus(), 300);
+    router.setParams({ search: undefined });
+    return () => clearTimeout(id);
+  }, [search]);
   const debounced = useDebounced(text, 120);
   const setFilters = (patch: Partial<typeof filters>) => setState((s) => ({ library: { ...s.library, ...patch } }));
 
@@ -307,7 +316,7 @@ export default function LibraryScreen() {
           <IconButton icon="refresh" label="Rescan device" onPress={() => void scanLibrary()} />
         </View>
         <View style={{ paddingHorizontal: spacing.lg }}>
-          <SearchBar value={text} onChangeText={setText} />
+          <SearchBar ref={searchRef} value={text} onChangeText={setText} />
         </View>
       </View>
       <DocumentBrowser

@@ -31,6 +31,7 @@ private const val REQUEST_PICK_FOLDER = 48101
 private const val REQUEST_PICK_FILES = 48102
 private const val REQUEST_CREATE_FILE = 48103
 private const val REQUEST_OPEN_FILE = 48104
+private const val REQUEST_PICK_BACKUP = 48105
 
 private val SUPPORTED_EXTENSIONS = setOf(
   "pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "txt", "epub", "csv",
@@ -64,6 +65,8 @@ class DeraDocumentScannerModule : Module() {
   private val thumbnails by lazy { ThumbnailCache(context) }
   private val textExtractor by lazy { TextExtractor(context) }
   private val fileOps by lazy { FileOps(context) }
+  private var storageWatcher: StorageWatcher? = null
+  private val backupWriter by lazy { BackupWriter(context) }
   private val shareAndPrint by lazy { ShareAndPrint(context) }
   private var pendingRequest = 0
 
@@ -73,7 +76,18 @@ class DeraDocumentScannerModule : Module() {
   override fun definition() = ModuleDefinition {
     Name("DeraDocumentScanner")
 
-    Events("onScanProgress", "onShare")
+    Events("onScanProgress", "onShare", "onStorageChanged")
+
+    OnCreate {
+      appContext.reactContext?.let { ctx ->
+        storageWatcher = StorageWatcher(ctx) { sendEvent("onStorageChanged", mapOf<String, Any?>()) }.also { it.start() }
+      }
+    }
+
+    OnDestroy {
+      storageWatcher?.stop()
+      storageWatcher = null
+    }
 
     Function("getStorageAccess") {
       val sdk = Build.VERSION.SDK_INT
@@ -230,6 +244,25 @@ class DeraDocumentScannerModule : Module() {
 
     // endregion
 
+    /** Folder for automatic backups: read and write access is persisted. */
+    AsyncFunction("pickBackupFolder") { promise: Promise ->
+      val intent = Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).addFlags(
+        Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION or Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION
+      )
+      launchForResult(intent, REQUEST_PICK_BACKUP, promise)
+    }
+
+    AsyncFunction("writeBackup") Coroutine { treeUri: String, fileName: String, text: String, keep: Int ->
+      withContext(Dispatchers.IO) { backupWriter.write(treeUri, fileName, text, keep.coerceIn(1, 52)) }
+    }
+
+    Function("setShortcuts") { items: List<Map<String, Any?>> -> HomeScreen.setShortcuts(context, items) }
+
+    Function("updateWidget") { json: String ->
+      HomeScreen.updateWidget(context, json)
+      true
+    }
+
     AsyncFunction("clearThumbnails") Coroutine { ->
       withContext(Dispatchers.IO) { thumbnails.clear() }
     }
@@ -286,10 +319,10 @@ class DeraDocumentScannerModule : Module() {
       }
     }
 
-    AsyncFunction("createExportFile") { fileName: String, promise: Promise ->
+    AsyncFunction("createExportFile") { fileName: String, mimeType: String, promise: Promise ->
       val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
         addCategory(Intent.CATEGORY_OPENABLE)
-        type = "application/json"
+        type = mimeType
         putExtra(Intent.EXTRA_TITLE, fileName)
       }
       launchForResult(intent, REQUEST_CREATE_FILE, promise)
@@ -330,6 +363,14 @@ class DeraDocumentScannerModule : Module() {
           REQUEST_PICK_FOLDER -> {
             val tree = data.data ?: return@OnActivityResult promise.resolve(null)
             context.contentResolver.takePersistableUriPermission(tree, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            promise.resolve(mapOf("uri" to tree.toString(), "label" to treeLabel(tree)))
+          }
+          REQUEST_PICK_BACKUP -> {
+            val tree = data.data ?: return@OnActivityResult promise.resolve(null)
+            context.contentResolver.takePersistableUriPermission(
+              tree,
+              Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+            )
             promise.resolve(mapOf("uri" to tree.toString(), "label" to treeLabel(tree)))
           }
           REQUEST_PICK_FILES -> {

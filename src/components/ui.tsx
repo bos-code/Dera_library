@@ -105,6 +105,8 @@ export function Chip({
       accessibilityState={{ selected: !!selected }}
       accessibilityLabel={count != null ? `${label}, ${count}` : label}
       onPress={onPress}
+      // 36dp visually, 48dp to the touch (Android's minimum target).
+      hitSlop={6}
       style={[
         styles.chip,
         {

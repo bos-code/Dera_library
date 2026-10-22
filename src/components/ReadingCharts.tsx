@@ -43,7 +43,15 @@ function ReadingHeatmapImpl({
   }, []);
 
   return (
-    <ScrollView ref={scroll} horizontal showsHorizontalScrollIndicator={false}>
+    <ScrollView
+      ref={scroll}
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      // Screen readers get a summary; individual days are reachable with the previous/next day buttons.
+      accessible
+      accessibilityRole="image"
+      accessibilityLabel={`Reading calendar for the last 12 months: read on ${[...totals.values()].filter((ms) => ms > 0).length} days. Use the previous and next day buttons to hear each day.`}
+    >
       <Svg width={width} height={height}>
         {calendar.months.map((m) => (
           <SvgText

@@ -2,6 +2,7 @@ import { getContentSettings, getIndexStats, nextPending, saveExtraction } from "
 import { invalidateContentIndexSetting } from "@/db/documents";
 import { isScannerAvailable, scanner } from "@/native/scanner";
 import { notifyLibraryChanged, setState } from "@/state/store";
+import { logError } from "./log";
 
 /** Plenty for search (roughly 75 pages of prose) while keeping the index small. */
 const MAX_CHARS = 150_000;
@@ -43,7 +44,7 @@ export async function runTextIndexer(): Promise<void> {
       }
     }
   } catch (e) {
-    console.warn("Text indexing stopped", e);
+    logError("Text indexing stopped", e);
   } finally {
     running = false;
     setState({ indexing: null });

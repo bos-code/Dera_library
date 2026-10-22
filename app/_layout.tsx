@@ -21,17 +21,25 @@ import { loadAppearance } from "@/services/appearance";
 import { loadFocus } from "@/services/focus";
 import { finishReading } from "@/services/readingSession";
 import { emptyOldTrash } from "@/services/fileManager";
+import { maybeAutoBackup } from "@/services/autoBackup";
 import { handleIncomingShares } from "@/services/shareIn";
+import { refreshHomeScreen } from "@/services/homeScreen";
+import { installGlobalErrorLogging } from "@/services/log";
 import { isScannerAvailable, scanner } from "@/native/scanner";
 import { pauseTextIndexer, runTextIndexer } from "@/services/textIndexer";
 import { ReadingPromptSheet } from "@/components/ReadingSheets";
 import { ToastBar } from "@/components/ToastBar";
-import { scanLibrary } from "@/services/scan";
-import { getState, setState } from "@/state/store";
+import { maybeAutoRescan, scanLibrary } from "@/services/scan";
+import { getState, setState, useLibraryVersion } from "@/state/store";
 import { font, spacing, ThemeProvider, useTheme } from "@/theme";
 
 function ThemedStack() {
   const t = useTheme();
+  const libraryVersion = useLibraryVersion();
+  // Widget and app-icon shortcuts follow the library (recent documents, today's reading, inbox).
+  useEffect(() => {
+    if (getState().onboarded) refreshHomeScreen();
+  }, [libraryVersion]);
   useEffect(() => {
     void SystemUI.setBackgroundColorAsync(t.background);
   }, [t.background]);
@@ -66,12 +74,15 @@ function ThemedStack() {
         <Stack.Screen name="saved/[id]" options={{ title: "" }} />
         <Stack.Screen name="storage" options={{ title: "Storage" }} />
         <Stack.Screen name="trash" options={{ title: "Trash" }} />
+        <Stack.Screen name="diagnostics" options={{ title: "Diagnostics" }} />
       </Stack>
       <ReadingPromptSheet />
       <ToastBar />
     </GradientCanvas>
   );
 }
+
+installGlobalErrorLogging();
 
 export default function RootLayout() {
   const [ready, setReady] = useState(false);
@@ -89,15 +100,17 @@ export default function RootLayout() {
   useEffect(() => {
     (async () => {
       await getDb();
-      const [onboarded, appearance, lastScan, layout] = await Promise.all([
+      const [onboarded, appearance, lastScan, layout, autoRescan] = await Promise.all([
         getMeta("onboarded"),
         loadAppearance(),
         getMeta("last_scan_at"),
         getMeta("library_layout"),
+        getMeta("auto_rescan"),
       ]);
       setState((s) => ({
         onboarded: onboarded === "1",
         appearance,
+        autoRescan: autoRescan !== "0",
         lastScanAt: lastScan ? Number(lastScan) : null,
         library: { ...s.library, layout: layout === "grid" ? "grid" : "list" },
       }));
@@ -109,6 +122,7 @@ export default function RootLayout() {
         void runTextIndexer();
         void handleIncomingShares();
         void emptyOldTrash();
+        void maybeAutoBackup();
       }
     })().catch((e: unknown) => setError(e instanceof Error ? e.message : String(e)));
 
@@ -122,6 +136,7 @@ export default function RootLayout() {
       if (getState().onboarded) {
         void runTextIndexer();
         void handleIncomingShares();
+        maybeAutoRescan("resume");
       }
       const before = getState().access?.allFilesAccess;
       const after = refreshAccess()?.allFilesAccess;
@@ -130,9 +145,12 @@ export default function RootLayout() {
     });
     // Something shared to Dera while it was already open.
     const shareSub = isScannerAvailable ? scanner().addListener("onShare", () => void handleIncomingShares()) : null;
+    // Downloads, saved attachments and files moved by other apps show up without a manual rescan.
+    const storageSub = isScannerAvailable ? scanner().addListener("onStorageChanged", () => maybeAutoRescan("storage")) : null;
     return () => {
       sub.remove();
       shareSub?.remove();
+      storageSub?.remove();
     };
   }, []);
 

@@ -5,6 +5,7 @@ import { scanner } from "@/native/scanner";
 import { getState, notifyLibraryChanged, setState } from "@/state/store";
 import type { ScanSummary } from "@/types/document";
 import { refreshAccess } from "./access";
+import { logError } from "./log";
 import { runTextIndexer } from "./textIndexer";
 
 const emptySummary = (): ScanSummary => ({
@@ -40,6 +41,7 @@ async function withScanState(task: (total: ScanSummary) => Promise<void>): Promi
     setState({ lastSummary: total, lastScanAt: now });
     return total;
   } catch (e) {
+    logError("Scan failed", e);
     setState({ scanError: e instanceof Error ? e.message : "The scan failed." });
     return null;
   } finally {
@@ -111,4 +113,17 @@ export async function addFiles(): Promise<number> {
     merge(total, await applyScan({ sourceId: PICKED_SOURCE_ID, items }, { inbox: true }));
   });
   return uris.length;
+}
+
+/** Gaps between automatic rescans: after a storage change, and when returning to the app. */
+const AUTO_AFTER_CHANGE_MS = 60_000;
+const AUTO_ON_RESUME_MS = 15 * 60_000;
+
+/** Rescans quietly when files change or the app comes back, unless one ran recently or it's switched off. */
+export function maybeAutoRescan(reason: "storage" | "resume"): void {
+  const s = getState();
+  if (!s.autoRescan || !s.onboarded || s.scanning) return;
+  const gap = reason === "storage" ? AUTO_AFTER_CHANGE_MS : AUTO_ON_RESUME_MS;
+  if (s.lastScanAt && Date.now() - s.lastScanAt < gap) return;
+  void scanLibrary();
 }

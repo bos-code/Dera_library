@@ -61,7 +61,7 @@ interface NativeScanner {
   releaseUri(uri: string): Promise<boolean>;
   checkDocument(uri: string): Promise<AccessStatus>;
   openDocument(uri: string, mimeType: string): Promise<OpenStatus>;
-  createExportFile(fileName: string): Promise<string | null>;
+  createExportFile(fileName: string, mimeType: string): Promise<string | null>;
   pickImportFile(): Promise<string | null>;
   writeText(uri: string, text: string): Promise<boolean>;
   readText(uri: string): Promise<string>;
@@ -92,8 +92,17 @@ interface NativeScanner {
   takeSharedUris(): string[];
   saveSharedFile(uri: string): Promise<ScannedItem | null>;
   printPdf(uri: string, jobName: string): Promise<"ok" | "unavailable">;
+  // Home screen
+  setShortcuts(
+    items: Array<{ id: string; label: string; longLabel?: string; url: string; icon: "search" | "book" | "inbox" | "doc" }>,
+  ): boolean;
+  updateWidget(json: string): boolean;
+  // Automatic backups
+  pickBackupFolder(): Promise<{ uri: string; label: string } | null>;
+  writeBackup(treeUri: string, fileName: string, text: string, keep: number): Promise<"ok" | "revoked" | "error">;
   addListener(event: "onScanProgress", listener: (p: ScanProgress) => void): EventSubscription;
   addListener(event: "onShare", listener: () => void): EventSubscription;
+  addListener(event: "onStorageChanged", listener: () => void): EventSubscription;
 }
 
 const native = requireOptionalNativeModule<NativeScanner>("DeraDocumentScanner");

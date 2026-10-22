@@ -16,6 +16,12 @@ import { useTabBarHeight } from "@/lib/useTabBarHeight";
 import { notifyLibraryChanged } from "@/state/store";
 import { spacing, type, useTheme } from "@/theme";
 
+/** The day before/after a "YYYY-MM-DD" key, in local time. */
+function shiftDay(key: string, by: number): string {
+  const [y, m, d] = key.split("-").map(Number);
+  return dayKey(new Date(y, m - 1, d + by, 12).getTime());
+}
+
 const GOALS = [10, 15, 20, 30, 45, 60];
 
 const SOURCE_ICON: Record<ReadingSession["source"], IconName> = {
@@ -153,7 +159,20 @@ export default function ReadingScreen() {
         </FlatGlass>
 
         {/* Selected day */}
-        <SectionTitle>
+        <SectionTitle
+          action={
+            // Step through days without tapping 13dp squares (and with a screen reader).
+            <View style={{ flexDirection: "row" }}>
+              <IconButton icon="chevron-left" label="Previous day" onPress={() => setSelected(shiftDay(dayShown, -1))} />
+              <IconButton
+                icon="chevron-right"
+                label="Next day"
+                onPress={() => dayShown < todayKey && setSelected(shiftDay(dayShown, 1))}
+                color={dayShown < todayKey ? undefined : t.textFaint}
+              />
+            </View>
+          }
+        >
           {dayShown === todayKey
             ? "Today"
             : new Date(`${dayShown}T12:00:00`).toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" })}

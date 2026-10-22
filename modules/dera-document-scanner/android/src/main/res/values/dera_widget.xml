@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <color name="dera_widget_bg">#F7F4ED</color>
+  <color name="dera_widget_text">#17160F</color>
+  <color name="dera_widget_muted">#56514A</color>
+  <color name="dera_widget_accent">#2C5A4C</color>
+  <string name="dera_widget_description">Today\'s reading, your streak and recent documents</string>
+</resources>

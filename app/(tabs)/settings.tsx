@@ -1,7 +1,8 @@
 import { router } from "expo-router";
 import { useState } from "react";
-import { Alert, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { AutoBackupCard } from "@/components/AutoBackupCard";
 import { ContentIndexCard } from "@/components/ContentIndexCard";
 import { ScanBanner } from "@/components/ScanBanner";
 import { Button, Card, Chip, Icon, IconButton, ListRow, SectionTitle } from "@/components/ui";
@@ -33,6 +34,7 @@ export default function SettingsScreen() {
   const scanning = useAppState((s) => s.scanning);
   const lastScanAt = useAppState((s) => s.lastScanAt);
   const appearance = useAppState((s) => s.appearance);
+  const autoRescan = useAppState((s) => s.autoRescan);
   const { data: sources } = useQuery(getSources, []);
   const { data: stats } = useQuery(getLibraryStats, []);
   const [busy, setBusy] = useState<string | null>(null);
@@ -74,7 +76,7 @@ export default function SettingsScreen() {
     guard("export", async () => {
       const backup = await exportLibrary();
       const date = new Date().toISOString().slice(0, 10);
-      const uri = await scanner().createExportFile(`dera-library-${date}.json`);
+      const uri = await scanner().createExportFile(`dera-library-${date}.json`, "application/json");
       if (!uri) return;
       await scanner().writeText(uri, backup.json);
       Alert.alert(
@@ -189,6 +191,24 @@ export default function SettingsScreen() {
           {stats ? `${plural(stats.available, "document")} indexed` : " "}
           {lastScanAt ? ` · last scan ${formatRelativeDate(lastScanAt).toLowerCase()}` : ""}
         </Text>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.md }}>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.cardTitle, { color: t.text }]}>Keep up to date automatically</Text>
+            <Text style={[styles.cardText, { color: t.textMuted }]}>
+              Rescan when files change on the phone and when you come back to Dera.
+            </Text>
+          </View>
+          <Switch
+            value={autoRescan}
+            onValueChange={(on) => {
+              setState({ autoRescan: on });
+              void setMeta("auto_rescan", on ? "1" : "0");
+            }}
+            accessibilityLabel="Keep the library up to date automatically"
+            trackColor={{ true: t.primary, false: t.surfaceAlt }}
+            thumbColor={t.surface}
+          />
+        </View>
         <Button label="Rescan now" icon="magnify-scan" onPress={() => void scanLibrary()} busy={scanning} />
         <Button
           label="Full rescan"
@@ -230,6 +250,13 @@ export default function SettingsScreen() {
           title="Storage insights"
           subtitle="Space by type and folder, largest files, duplicates"
           onPress={() => router.push("/storage")}
+          right={<Icon name="chevron-right" color={t.textFaint} />}
+        />
+        <ListRow
+          icon="stethoscope"
+          title="Diagnostics"
+          subtitle="A private log of errors you can export when something goes wrong"
+          onPress={() => router.push("/diagnostics")}
           right={<Icon name="chevron-right" color={t.textFaint} />}
         />
         <ListRow
@@ -279,6 +306,7 @@ export default function SettingsScreen() {
           <Button label="Export" icon="export" onPress={exportBackup} busy={busy === "export"} style={{ flex: 1 }} />
           <Button label="Import" icon="import" onPress={importBackup} busy={busy === "import"} style={{ flex: 1 }} />
         </View>
+        <AutoBackupCard />
       </Card>
 
       <SectionTitle>Privacy</SectionTitle>
