@@ -1,8 +1,9 @@
-import { router, useLocalSearchParams } from "expo-router";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { DocumentBrowser } from "@/components/DocumentBrowser";
+import { DocumentDetail } from "@/components/DocumentDetail";
 import { FocusCard } from "@/components/Focus";
 import { GoalRing } from "@/components/ReadingCharts";
 import { Shelf } from "@/components/Shelf";
@@ -22,6 +23,7 @@ import { plural } from "@/lib/format";
 import { useDebounced, useQuery } from "@/lib/useQuery";
 import { stackVersions } from "@/lib/versions";
 import { scanWithCamera } from "@/services/camera";
+import { setDetailPane } from "@/services/documentActions";
 import { scanLibrary } from "@/services/scan";
 import { getState, notifyLibraryChanged, setState, useAppState } from "@/state/store";
 import { corner, spacing, type, useTheme } from "@/theme";
@@ -53,6 +55,9 @@ const SHELF_INFO: Record<SmartShelf, { label: string; icon: IconName }> = {
   duplicates: { label: "Duplicates", icon: "content-duplicate" },
 };
 
+/** From this width (dp, Material's "expanded" class) the Library shows document details beside the list. */
+const TWO_PANE_MIN_WIDTH = 840;
+
 /** Rescan automatically on launch when the last scan is older than this. */
 const AUTO_SCAN_AFTER_MS = 10 * 60_000;
 
@@ -72,6 +77,17 @@ export default function LibraryScreen() {
     router.setParams({ search: undefined });
     return () => clearTimeout(id);
   }, [search]);
+  const { width } = useWindowDimensions();
+  const twoPane = width >= TWO_PANE_MIN_WIDTH;
+  const listWidth = twoPane ? Math.min(520, Math.max(360, Math.round(width * 0.42))) : width;
+  const [paneId, setPaneId] = useState<number | null>(null);
+  useFocusEffect(
+    useCallback(() => {
+      if (!twoPane) return;
+      setDetailPane(setPaneId);
+      return () => setDetailPane(null);
+    }, [twoPane]),
+  );
   const debounced = useDebounced(text, 120);
   const setFilters = (patch: Partial<typeof filters>) => setState((s) => ({ library: { ...s.library, ...patch } }));
 
@@ -321,15 +337,33 @@ export default function LibraryScreen() {
           <SearchBar ref={searchRef} value={text} onChangeText={setText} />
         </View>
       </View>
-      <DocumentBrowser
-        documents={listed}
-        onToggleStack={toggleStack}
-        header={header}
-        empty={empty}
-        layout={filters.layout}
-        refreshing={false}
-        onRefresh={() => void scanLibrary()}
-      />
+      <View style={{ flex: 1, flexDirection: "row" }}>
+        <View style={{ width: listWidth }}>
+          <DocumentBrowser
+            documents={listed}
+            onToggleStack={toggleStack}
+            header={header}
+            empty={empty}
+            layout={filters.layout}
+            width={listWidth}
+            refreshing={false}
+            onRefresh={() => void scanLibrary()}
+          />
+        </View>
+        {twoPane ? (
+          <View style={[styles.pane, { borderLeftColor: t.border }]}>
+            {paneId != null ? (
+              <DocumentDetail key={paneId} id={paneId} embedded onClose={() => setPaneId(null)} />
+            ) : (
+              <EmptyState
+                icon="file-document-outline"
+                title="No document selected"
+                message="Choose a document to see its details here."
+              />
+            )}
+          </View>
+        ) : null}
+      </View>
       <PromptSheet
         visible={saving}
         title="Save as smart collection"
@@ -386,6 +420,7 @@ export default function LibraryScreen() {
 }
 
 const styles = StyleSheet.create({
+  pane: { flex: 1, borderLeftWidth: StyleSheet.hairlineWidth },
   titleRow: { flexDirection: "row", alignItems: "center", paddingLeft: spacing.lg, paddingRight: spacing.xs },
   title: { ...type.title },
   notice: { flexDirection: "row", alignItems: "center", gap: spacing.sm, padding: spacing.md, ...corner.petal },

@@ -113,3 +113,10 @@ export async function getContentStatus(documentId: number): Promise<{ status: st
   );
   return row ? { status: row.status, ocr: row.error === "ocr" } : null;
 }
+
+/** The document's extracted text, for reading aloud; null when it hasn't been read or has none. */
+export async function getDocumentText(documentId: number): Promise<string | null> {
+  const db = await getDb();
+  const row = await db.getFirstAsync<{ body: string }>("SELECT body FROM content_fts WHERE rowid=?", documentId);
+  return row?.body || null;
+}

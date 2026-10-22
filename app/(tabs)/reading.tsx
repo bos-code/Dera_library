@@ -28,6 +28,7 @@ const SOURCE_ICON: Record<ReadingSession["source"], IconName> = {
   estimate: "timer-sand",
   manual: "pencil-outline",
   reader: "book-open-page-variant",
+  listen: "headphones",
 };
 
 export default function ReadingScreen() {

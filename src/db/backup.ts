@@ -162,7 +162,7 @@ export async function importLibrary(json: string): Promise<ImportResult> {
       s.documentName,
       s.startedAt,
       s.durationMs,
-      ["estimate", "manual", "reader"].includes(s.source) ? s.source : "manual",
+      ["estimate", "manual", "reader", "listen"].includes(s.source) ? s.source : "manual",
       s.pages ?? null,
       s.startedAt,
       s.documentName,

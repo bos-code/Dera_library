@@ -43,6 +43,7 @@ export function DocumentBrowser({
   extraActions = [],
   layout = "list",
   onToggleStack,
+  width,
 }: {
   documents: Array<DocumentRecord & { stack?: StackInfo }>;
   /** Expands or collapses a version stack (rows carry `stack` when versions are grouped). */
@@ -54,6 +55,8 @@ export function DocumentBrowser({
   extraActions?: BulkAction[];
   /** "grid" shows covers in columns, like books on a shelf. */
   layout?: "list" | "grid";
+  /** Width the browser is laid out in, when it doesn't fill the screen (tablet panes). */
+  width?: number;
 }) {
   const t = useTheme();
   const insets = useSafeAreaInsets();
@@ -62,7 +65,8 @@ export function DocumentBrowser({
   const [sheet, setSheet] = useState<"collections" | "tags" | "more" | "move" | null>(null);
   const selecting = selected.size > 0;
   const tapOpens = useAppState((s) => s.appearance.tapAction === "open");
-  const { width: screenWidth } = useWindowDimensions();
+  const { width: windowWidth } = useWindowDimensions();
+  const screenWidth = width ?? windowWidth;
   const grid = useMemo(() => {
     const edge = spacing.lg;
     const gap = spacing.md;

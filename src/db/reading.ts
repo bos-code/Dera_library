@@ -8,7 +8,7 @@ export interface ReadingSession {
   documentName: string;
   startedAt: number;
   durationMs: number;
-  source: "estimate" | "manual" | "reader";
+  source: "estimate" | "manual" | "reader" | "listen";
   pages: number | null;
 }
 

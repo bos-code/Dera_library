@@ -4,7 +4,15 @@ import { getState } from "@/state/store";
 import type { DocumentRecord } from "@/types/document";
 import { openDocument } from "./open";
 
+let detailPane: ((id: number) => void) | null = null;
+
+/** On tablets the Library shows details beside the list; while it's on screen, details go there instead. */
+export function setDetailPane(show: ((id: number) => void) | null): void {
+  detailPane = show;
+}
+
 export function showDetails(doc: Pick<DocumentRecord, "id">): void {
+  if (detailPane) return detailPane(doc.id);
   router.push({ pathname: "/document/[id]", params: { id: String(doc.id) } });
 }
 
