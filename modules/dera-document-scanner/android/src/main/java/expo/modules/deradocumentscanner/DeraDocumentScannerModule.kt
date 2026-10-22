@@ -62,6 +62,7 @@ private val SKIPPED_RELATIVE_DIRS = setOf("Android/data", "Android/obb")
 class DeraDocumentScannerModule : Module() {
   private var pendingPromise: Promise? = null
   private val thumbnails by lazy { ThumbnailCache(context) }
+  private val textExtractor by lazy { TextExtractor(context) }
   private var pendingRequest = 0
 
   private val context: Context
@@ -156,6 +157,14 @@ class DeraDocumentScannerModule : Module() {
     Function("stopFocusNotification") {
       FocusNotifications.stop(context)
       true
+    }
+
+    /** Plain text for search-inside-documents; see TextExtractor for what each format yields. */
+    AsyncFunction("extractText") Coroutine { uri: String, extension: String, maxChars: Int, ocrPages: Int ->
+      withContext(Dispatchers.IO) {
+        val r = textExtractor.extract(uri, extension.lowercase(), maxChars.coerceIn(1_000, 2_000_000), ocrPages.coerceIn(0, 50))
+        mapOf("status" to r.status, "text" to r.text, "pages" to r.pages, "ocr" to r.ocr)
+      }
     }
 
     AsyncFunction("clearThumbnails") Coroutine { ->

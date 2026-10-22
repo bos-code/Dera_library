@@ -5,6 +5,7 @@ import { scanner } from "@/native/scanner";
 import { getState, notifyLibraryChanged, setState } from "@/state/store";
 import type { ScanSummary } from "@/types/document";
 import { refreshAccess } from "./access";
+import { runTextIndexer } from "./textIndexer";
 
 const emptySummary = (): ScanSummary => ({
   added: 0,
@@ -80,6 +81,10 @@ export function scanLibrary(options: { force?: boolean } = {}) {
     merge(total, await applyScan({ sourceId: "device", items: device.items, deviceMode: device.mode, force }));
     for (const source of await getSources()) await scanSource(source, total, force);
     await purgeStaleMissing();
+  }).then((summary) => {
+    // New or changed documents get their text read for search once the scan settles.
+    void runTextIndexer();
+    return summary;
   });
 }
 

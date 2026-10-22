@@ -121,3 +121,10 @@ export function formatDuration(ms: number): string {
   const m = minutes % 60;
   return m ? `${h} h ${m} min` : `${h} h`;
 }
+
+/** Rough reading time: 200 words a minute when the text is known, otherwise about 2 minutes a page. */
+export function estimateReadingMs(words: number | null | undefined, pages: number | null | undefined): number | null {
+  if (words && words > 50) return (words / 200) * 60_000;
+  if (pages && pages > 0) return pages * 2 * 60_000;
+  return null;
+}

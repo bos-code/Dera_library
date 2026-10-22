@@ -109,6 +109,16 @@ export default function ReadingScreen() {
           </View>
         </Glass>
 
+        <Pressable
+          onPress={() => router.push("/recap")}
+          accessibilityRole="button"
+          style={[styles.recapLink, { borderColor: t.border }]}
+        >
+          <Icon name="chart-bar" color={t.primary} />
+          <Text style={[type.smallStrong, { color: t.text, flex: 1 }]}>Your month and year in reading</Text>
+          <Icon name="chevron-right" color={t.textFaint} />
+        </Pressable>
+
         {/* Stats */}
         <View style={styles.stats}>
           {(
@@ -258,6 +268,16 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 999,
     marginTop: 4,
+  },
+  recapLink: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.md,
+    padding: spacing.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 14,
   },
   stats: { flexDirection: "row", flexWrap: "wrap", gap: spacing.md, paddingHorizontal: spacing.lg, paddingTop: spacing.md },
   stat: { flexBasis: "47%", flexGrow: 1 },

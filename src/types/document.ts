@@ -22,6 +22,10 @@ export interface DocumentRecord {
   lastOpenedAt: number | null;
   isFavorite: number;
   readingStatus: ReadingStatus | null;
+  pageCount: number | null;
+  wordCount: number | null;
+  /** Excerpt around a text match, with matches wrapped in \u0001 … \u0002. Only set by text searches. */
+  snippet?: string;
 }
 
 export interface ScanSummary {

@@ -9,7 +9,8 @@ import { FocusSheet } from "@/components/Focus";
 import { LogReadingSheet } from "@/components/ReadingSheets";
 import { Button, Card, Chip, EmptyState, Icon, SectionTitle, type IconName } from "@/components/ui";
 import { getDocumentReading, setReadingStatus } from "@/db/reading";
-import { formatDuration } from "@/lib/readingStats";
+import { estimateReadingMs, formatDuration } from "@/lib/readingStats";
+import { getContentStatus } from "@/db/contentIndex";
 import type { ReadingStatus } from "@/types/document";
 import { getOpenCount, setFavorite } from "@/db/activity";
 import { getAllCollections, getDocumentCollectionIds, setDocumentCollections } from "@/db/collections";
@@ -46,12 +47,13 @@ export default function DocumentScreen() {
   const { data } = useQuery(async () => {
     const doc = await getDocument(id);
     if (!doc) return null;
-    const [tags, collectionIds, collections, opens, reading] = await Promise.all([
+    const [tags, collectionIds, collections, opens, reading, content] = await Promise.all([
       getDocumentTags(id),
       getDocumentCollectionIds(id),
       getAllCollections(),
       getOpenCount(id),
       getDocumentReading(id),
+      getContentStatus(id),
     ]);
     const byId = new Map(collections.map((c) => [c.id, c]));
     const pathOf = (cid: string) => {
@@ -70,6 +72,7 @@ export default function DocumentScreen() {
       collections: collectionIds.map((cid) => ({ id: cid, label: pathOf(cid) })).sort((a, b) => a.label.localeCompare(b.label)),
       opens,
       reading,
+      content,
     };
   }, [id]);
 
@@ -86,7 +89,8 @@ export default function DocumentScreen() {
       </>
     );
   }
-  const { doc, tags, collections, collectionIds, opens, reading } = data;
+  const { doc, tags, collections, collectionIds, opens, reading, content } = data;
+  const estimate = estimateReadingMs(doc.wordCount, doc.pageCount);
   const unavailable = doc.status !== "available";
 
   const open = async () => {
@@ -125,6 +129,23 @@ export default function DocumentScreen() {
     ["File name", doc.name],
     ["Type", `${TYPE_LABEL[doc.type]} (.${doc.extension})`],
     ["Size", formatSize(doc.size)],
+    ...(doc.pageCount
+      ? ([[doc.type === "slides" ? "Slides" : "Pages", doc.pageCount.toLocaleString()]] as Array<[string, string]>)
+      : []),
+    ...(doc.wordCount ? ([["Words", doc.wordCount.toLocaleString()]] as Array<[string, string]>) : []),
+    ...(estimate ? ([["Reading time", `About ${formatDuration(estimate)}`]] as Array<[string, string]>) : []),
+    [
+      "Search inside",
+      !content
+        ? "Not read yet"
+        : content.status === "ok"
+          ? content.ocr
+            ? "Yes (text recognised from scans)"
+            : "Yes"
+          : content.status === "empty"
+            ? "No text found"
+            : "Couldn't read this file",
+    ],
     ["Modified", doc.modifiedAt ? formatDateTime(doc.modifiedAt) : "Unknown"],
     ["Location", doc.folder || "Unknown"],
     ["Last opened", doc.lastOpenedAt ? formatDateTime(doc.lastOpenedAt) : "Never"],
@@ -158,7 +179,13 @@ export default function DocumentScreen() {
             {displayTitle(doc.name)}
           </Text>
           <Text style={{ color: t.textMuted, fontSize: font.small }}>
-            {formatSize(doc.size)} · {doc.folder || "Unknown folder"}
+            {[
+              formatSize(doc.size),
+              doc.pageCount ? plural(doc.pageCount, doc.type === "slides" ? "slide" : "page") : null,
+              estimate ? `about ${formatDuration(estimate)}` : null,
+            ]
+              .filter(Boolean)
+              .join(" · ")}
           </Text>
         </View>
 

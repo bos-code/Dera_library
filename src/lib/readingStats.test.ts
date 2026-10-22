@@ -64,3 +64,10 @@ test("durations read naturally", () => {
   assert.equal(formatDuration(80 * MIN), "1 h 20 min");
   assert.equal(formatDuration(120 * MIN), "2 h");
 });
+
+test("reading estimate prefers word count, falls back to pages", async () => {
+  const { estimateReadingMs } = await import("./readingStats.ts");
+  assert.equal(estimateReadingMs(2000, 40), 10 * MIN);
+  assert.equal(estimateReadingMs(null, 30), 60 * MIN);
+  assert.equal(estimateReadingMs(10, null), null);
+});

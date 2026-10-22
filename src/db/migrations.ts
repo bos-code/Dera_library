@@ -160,12 +160,40 @@ CREATE INDEX idx_reading_document ON reading_sessions(document_id);
 ALTER TABLE documents ADD COLUMN reading_status TEXT CHECK(reading_status IN ('to-read','reading','done'));
 `;
 
+/** v6: page and word counts (reading estimates); stale extracted text is dropped when a file changes. */
+const v6 = `
+ALTER TABLE documents ADD COLUMN page_count INTEGER;
+ALTER TABLE documents ADD COLUMN word_count INTEGER;
+CREATE TRIGGER document_content_reset AFTER UPDATE OF size, modified_at ON documents
+WHEN old.size IS NOT new.size OR old.modified_at IS NOT new.modified_at
+BEGIN
+  DELETE FROM document_content WHERE document_id = new.id;
+END;
+`;
+
+/**
+ * v7 (optional, needs FTS5): word index over document text for search-inside-documents. Word-based
+ * (unicode61) rather than trigram: a fraction of the size, which matters once thousands of documents are indexed.
+ */
+const v7 = `
+CREATE VIRTUAL TABLE content_fts USING fts5(body, tokenize='unicode61 remove_diacritics 2');
+CREATE TRIGGER content_fts_document_delete AFTER DELETE ON documents BEGIN
+  DELETE FROM content_fts WHERE rowid = old.id;
+END;
+CREATE TRIGGER content_fts_reset AFTER DELETE ON document_content BEGIN
+  DELETE FROM content_fts WHERE rowid = old.document_id;
+END;
+INSERT OR REPLACE INTO app_meta(key,value) VALUES('content_fts','1');
+`;
+
 export const migrations: Migration[] = [
   { version: 1, up: (db) => db.execAsync(v1) },
   { version: 2, rebuildsTables: true, up: (db) => db.execAsync(v2) },
   { version: 3, optional: true, up: (db) => db.execAsync(v3) },
   { version: 4, up: (db) => db.execAsync(v4) },
   { version: 5, up: (db) => db.execAsync(v5) },
+  { version: 6, up: (db) => db.execAsync(v6) },
+  { version: 7, optional: true, up: (db) => db.execAsync(v7) },
 ];
 
 export async function migrate(db: SQLiteDatabase): Promise<void> {

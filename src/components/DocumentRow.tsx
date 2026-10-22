@@ -5,6 +5,7 @@ import { displayTitle } from "@/lib/title";
 import { radius, spacing, type, useTheme } from "@/theme";
 import type { DocumentRecord } from "@/types/document";
 import { DocumentCover } from "./DocumentCover";
+import { Snippet } from "./Snippet";
 import { Icon, IconButton } from "./ui";
 
 interface Props {
@@ -69,7 +70,8 @@ function DocumentRowImpl({ doc, selected, selecting, onPress, onLongPress, onInf
             {meta}
           </Text>
         </View>
-        {doc.folder && !compact ? (
+        {doc.snippet ? <Snippet text={doc.snippet} /> : null}
+        {doc.folder && !compact && !doc.snippet ? (
           <Text numberOfLines={1} style={[styles.folder, { color: t.textFaint }]}>
             {doc.folder}
           </Text>

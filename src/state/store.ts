@@ -62,6 +62,8 @@ export interface AppState {
   focus: FocusSession | null;
   /** Bottom message bar, usually offering Undo. */
   toast: Toast | null;
+  /** Background reading of document text for search; null when idle. */
+  indexing: { done: number; total: number } | null;
   access: StorageAccess | null;
   scanning: boolean;
   progress: ScanProgress | null;
@@ -85,6 +87,7 @@ let state: AppState = {
   readingPrompt: null,
   focus: null,
   toast: null,
+  indexing: null,
   access: null,
   scanning: false,
   progress: null,

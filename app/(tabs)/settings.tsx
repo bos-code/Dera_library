@@ -2,6 +2,7 @@ import { router } from "expo-router";
 import { useState } from "react";
 import { Alert, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { ContentIndexCard } from "@/components/ContentIndexCard";
 import { ScanBanner } from "@/components/ScanBanner";
 import { Button, Card, Chip, Icon, IconButton, ListRow, SectionTitle } from "@/components/ui";
 import { clearHistory } from "@/db/activity";
@@ -227,6 +228,9 @@ export default function SettingsScreen() {
           }
         />
       </Card>
+
+      <SectionTitle>Search inside documents</SectionTitle>
+      <ContentIndexCard />
 
       <SectionTitle>Appearance</SectionTitle>
       <View style={styles.chips}>

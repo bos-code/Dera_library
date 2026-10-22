@@ -122,3 +122,19 @@ export async function setReadingStatus(documentIds: number[], status: ReadingSta
     ...documentIds,
   );
 }
+
+/** Collections that received the most reading in a period (a document counts toward each of its collections). */
+export async function getTopCollections(from: number, to: number, limit = 5) {
+  const db = await getDb();
+  return db.getAllAsync<{ id: string; name: string; totalMs: number }>(
+    `SELECT c.id, c.name, SUM(s.duration_ms) AS totalMs
+     FROM reading_sessions s
+     JOIN collection_documents cd ON cd.document_id = s.document_id
+     JOIN collections c ON c.id = cd.collection_id
+     WHERE s.started_at >= ? AND s.started_at < ?
+     GROUP BY c.id ORDER BY totalMs DESC LIMIT ?`,
+    from,
+    to,
+    limit,
+  );
+}

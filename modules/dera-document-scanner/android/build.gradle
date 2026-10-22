@@ -17,4 +17,6 @@ android {
 
 dependencies {
   implementation "androidx.core:core-ktx:1.13.1"
+  // On-device text recognition for scanned PDFs. The bundled model works offline and without Play services.
+  implementation "com.google.mlkit:text-recognition:16.0.1"
 }

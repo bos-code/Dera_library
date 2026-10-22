@@ -8,7 +8,7 @@ const SELECT_DOCUMENT = `
   SELECT d.id, d.uri, d.path, d.name, d.extension, d.mime_type AS mimeType, d.size, d.modified_at AS modifiedAt,
          d.folder, d.type, d.source_id AS sourceId, d.status, d.missing_since AS missingSince,
          d.last_opened_at AS lastOpenedAt, (f.document_id IS NOT NULL) AS isFavorite,
-         d.reading_status AS readingStatus
+         d.reading_status AS readingStatus, d.page_count AS pageCount, d.word_count AS wordCount
   FROM documents d LEFT JOIN favorites f ON f.document_id = d.id`;
 
 /** Documents missing for longer than this, with no user organization attached, are purged. */
@@ -24,6 +24,8 @@ export interface DocumentQuery {
   status?: DocumentStatus | "any";
   shelf?: SmartShelf | null;
   readingStatus?: ReadingStatus;
+  /** Also match text inside documents (default true when the index is on). */
+  content?: boolean;
   limit?: number;
 }
 
@@ -81,6 +83,41 @@ const SORT_SQL: Record<SortMode, string> = {
 };
 
 let ftsAvailable: boolean | null = null;
+let contentIndexEnabled: boolean | null = null;
+
+/** Whether search-inside-documents is available (FTS5 present) and switched on. */
+export async function useContentIndex(): Promise<boolean> {
+  if (contentIndexEnabled === null) {
+    contentIndexEnabled = (await getMeta("content_fts")) === "1" && (await getMeta("content_index")) !== "0";
+  }
+  return contentIndexEnabled;
+}
+
+export function invalidateContentIndexSetting(): void {
+  contentIndexEnabled = null;
+}
+
+/** Every word must appear; each may be the start of a longer word ("newt" finds "Newton"). */
+function contentMatchQuery(words: string[]): string {
+  return words.map((w) => `"${w.replace(/"/g, '""')}"*`).join(" ");
+}
+
+/** Adds a short excerpt around the matched words, for documents that matched inside their text. */
+async function attachSnippets(rows: DocumentRecord[], query: string): Promise<void> {
+  const db = await getDb();
+  const ids = rows.slice(0, 300).map((r) => r.id);
+  const snippets = await db.getAllAsync<{ id: number; snippet: string }>(
+    `SELECT rowid AS id, snippet(content_fts, 0, '\u0001', '\u0002', '…', 14) AS snippet
+     FROM content_fts WHERE content_fts MATCH ? AND rowid IN (${ids.map(() => "?").join(",")})`,
+    query,
+    ...ids,
+  );
+  const byId = new Map(snippets.map((s) => [s.id, s.snippet]));
+  for (const r of rows) {
+    const snippet = byId.get(r.id);
+    if (snippet) r.snippet = snippet;
+  }
+}
 
 async function useFts(): Promise<boolean> {
   if (ftsAvailable === null) ftsAvailable = (await getMeta("fts")) === "1";
@@ -125,24 +162,44 @@ export async function searchDocuments(q: DocumentQuery = {}): Promise<DocumentRe
     args.push(...cond.args);
   }
   const words = terms(q.text ?? "");
+  // Name/folder match (trigram FTS, LIKE fallback for very short terms) …
+  let nameMatch: { sql: string; args: string[] } | null = null;
   if (words.length) {
     if (words.every((w) => w.length >= 3) && (await useFts())) {
       // Each term quoted as a phrase so user punctuation can't form FTS syntax.
-      where.push("d.id IN (SELECT rowid FROM documents_fts WHERE documents_fts MATCH ?)");
-      args.push(words.map((w) => `"${w.replace(/"/g, '""')}"`).join(" "));
+      nameMatch = {
+        sql: "d.id IN (SELECT rowid FROM documents_fts WHERE documents_fts MATCH ?)",
+        args: [words.map((w) => `"${w.replace(/"/g, '""')}"`).join(" ")],
+      };
     } else {
-      for (const w of words) {
-        where.push("(d.name LIKE ? ESCAPE '\\' OR d.folder LIKE ? ESCAPE '\\')");
-        const like = `%${w.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
-        args.push(like, like);
-      }
+      const likes = words.map((w) => `%${w.replace(/[\\%_]/g, (c) => `\\${c}`)}%`);
+      nameMatch = {
+        sql: likes.map(() => "(d.name LIKE ? ESCAPE '\\' OR d.folder LIKE ? ESCAPE '\\')").join(" AND "),
+        args: likes.flatMap((l) => [l, l]),
+      };
     }
   }
-  const order = q.view === "recent" ? SORT_SQL["opened-desc"] : SORT_SQL[q.sort ?? "modified-desc"];
+  // … or a match inside the document's text (word prefixes, all words required).
+  const contentQuery = words.length && q.content !== false && (await useContentIndex()) ? contentMatchQuery(words) : null;
+  if (nameMatch) {
+    if (contentQuery) {
+      where.push(`(${nameMatch.sql} OR d.id IN (SELECT rowid FROM content_fts WHERE content_fts MATCH ?))`);
+      args.push(...nameMatch.args, contentQuery);
+    } else {
+      where.push(nameMatch.sql);
+      args.push(...nameMatch.args);
+    }
+  }
+  const baseOrder = q.view === "recent" ? SORT_SQL["opened-desc"] : SORT_SQL[q.sort ?? "modified-desc"];
+  // Title matches rank above matches found only inside the text.
+  const order = nameMatch && contentQuery ? `CASE WHEN ${nameMatch.sql} THEN 0 ELSE 1 END, ${baseOrder}` : baseOrder;
+  if (nameMatch && contentQuery) args.push(...nameMatch.args);
   const sql = `${SELECT_DOCUMENT} ${where.length ? `WHERE ${where.join(" AND ")}` : ""} ORDER BY ${order}${
     q.limit ? ` LIMIT ${Math.floor(q.limit)}` : ""
   }`;
-  return db.getAllAsync<DocumentRecord>(sql, ...args);
+  const rows = await db.getAllAsync<DocumentRecord>(sql, ...args);
+  if (contentQuery && rows.length) await attachSnippets(rows, contentQuery);
+  return rows;
 }
 
 export async function getDocument(id: number): Promise<DocumentRecord | null> {

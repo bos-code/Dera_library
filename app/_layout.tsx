@@ -20,6 +20,7 @@ import { refreshAccess } from "@/services/access";
 import { loadAppearance } from "@/services/appearance";
 import { loadFocus } from "@/services/focus";
 import { finishReading } from "@/services/readingSession";
+import { pauseTextIndexer, runTextIndexer } from "@/services/textIndexer";
 import { ReadingPromptSheet } from "@/components/ReadingSheets";
 import { ToastBar } from "@/components/ToastBar";
 import { scanLibrary } from "@/services/scan";
@@ -57,6 +58,7 @@ function ThemedStack() {
         <Stack.Screen name="add-documents" options={{ title: "Add documents", presentation: "modal" }} />
         <Stack.Screen name="missing" options={{ title: "Missing documents" }} />
         <Stack.Screen name="appearance" options={{ title: "Appearance" }} />
+        <Stack.Screen name="recap" options={{ title: "Recap" }} />
       </Stack>
       <ReadingPromptSheet />
       <ToastBar />
@@ -96,12 +98,17 @@ export default function RootLayout() {
       await loadFocus();
       void finishReading();
       setReady(true);
+      if (onboarded === "1") void runTextIndexer();
     })().catch((e: unknown) => setError(e instanceof Error ? e.message : String(e)));
 
     // Access can change in system settings while the app is in the background.
     const sub = AppState.addEventListener("change", (s) => {
-      if (s !== "active") return;
+      if (s !== "active") {
+        pauseTextIndexer();
+        return;
+      }
       void finishReading();
+      if (getState().onboarded) void runTextIndexer();
       const before = getState().access?.allFilesAccess;
       const after = refreshAccess()?.allFilesAccess;
       // Returning from system settings with new access: find the newly visible documents right away.
