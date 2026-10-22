@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { DocumentBrowser } from "@/components/DocumentBrowser";
+import { FocusCard } from "@/components/Focus";
 import { GoalRing } from "@/components/ReadingCharts";
 import { Shelf } from "@/components/Shelf";
 import { getReadingSummary } from "@/db/reading";
@@ -111,6 +112,7 @@ export default function LibraryScreen() {
         </View>
         <IconButton icon="refresh" label="Rescan device" onPress={() => void scanLibrary()} />
       </View>
+      <FocusCard />
       <View style={{ paddingHorizontal: spacing.lg, gap: spacing.md }}>
         <SearchBar value={text} onChangeText={setText} />
         <ScanBanner onDismiss={() => setState({ lastSummary: null, scanError: null })} />

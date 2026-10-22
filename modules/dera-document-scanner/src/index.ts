@@ -50,6 +50,8 @@ interface NativeScanner {
   readText(uri: string): Promise<string>;
   getThumbnail(uri: string, extension: string, key: string, width: number): Promise<string | null>;
   clearThumbnails(): Promise<boolean>;
+  startFocusNotification(title: string, startedAt: number, endsAt: number | null): boolean;
+  stopFocusNotification(): boolean;
   addListener(event: "onScanProgress", listener: (p: ScanProgress) => void): EventSubscription;
 }
 

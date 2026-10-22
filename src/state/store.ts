@@ -24,6 +24,14 @@ export interface ReadingPrompt {
   suggestedMs: number | null;
 }
 
+export interface FocusSession {
+  documentId: number;
+  documentName: string;
+  startedAt: number;
+  /** Target length, or null for an open-ended session. */
+  plannedMs: number | null;
+}
+
 export const DEFAULT_APPEARANCE: Appearance = {
   mode: "system",
   light: "paper",
@@ -40,6 +48,8 @@ export interface AppState {
   appearance: Appearance;
   /** A finished out-of-app reading session waiting for the user to confirm its length. */
   readingPrompt: ReadingPrompt | null;
+  /** A running focus session (timer the user starts and stops explicitly). */
+  focus: FocusSession | null;
   access: StorageAccess | null;
   scanning: boolean;
   progress: ScanProgress | null;
@@ -61,6 +71,7 @@ let state: AppState = {
   onboarded: null,
   appearance: DEFAULT_APPEARANCE,
   readingPrompt: null,
+  focus: null,
   access: null,
   scanning: false,
   progress: null,

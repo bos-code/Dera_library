@@ -4,6 +4,7 @@ import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-nati
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { FlatGlass, Glass } from "@/components/glass";
 import { GoalRing, HeatLegend, ReadingHeatmap } from "@/components/ReadingCharts";
+import { FocusCard, FocusSheet } from "@/components/Focus";
 import { LogReadingSheet } from "@/components/ReadingSheets";
 import { Chip, EmptyState, Icon, IconButton, SectionTitle, type IconName } from "@/components/ui";
 import { searchDocuments } from "@/db/documents";
@@ -28,6 +29,7 @@ export default function ReadingScreen() {
   const insets = useSafeAreaInsets();
   const tabBar = useTabBarHeight();
   const [logging, setLogging] = useState(false);
+  const [focusing, setFocusing] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
 
   const { data } = useQuery(async () => {
@@ -74,7 +76,12 @@ export default function ReadingScreen() {
             </Text>
             <Text style={[type.small, { color: t.textMuted }]}>Your reading year, one square a day</Text>
           </View>
+          <IconButton icon="timer-outline" label="Start a focus session" onPress={() => setFocusing(true)} />
           <IconButton icon="plus" label="Log reading" onPress={() => setLogging(true)} />
+        </View>
+
+        <View style={{ marginBottom: spacing.md }}>
+          <FocusCard />
         </View>
 
         {/* Today */}
@@ -226,6 +233,7 @@ export default function ReadingScreen() {
         ) : null}
       </ScrollView>
       <LogReadingSheet visible={logging} onClose={() => setLogging(false)} candidates={recent} />
+      <FocusSheet visible={focusing} onClose={() => setFocusing(false)} candidates={recent} />
     </>
   );
 }

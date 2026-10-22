@@ -21,12 +21,13 @@ const VIEWER_HINT: Record<string, string> = {
 };
 
 /** Opens a document in another app, updating its status and history. Never throws. */
-export async function openDocument(doc: DocumentRecord): Promise<OpenResult> {
+export async function openDocument(doc: DocumentRecord, options: { trackReading?: boolean } = {}): Promise<OpenResult> {
   try {
     const status = await scanner().openDocument(doc.uri, doc.mimeType);
     switch (status) {
       case "opened":
-        await beginReading(doc);
+        // A focus session times reading itself; otherwise estimate from time away.
+        if (options.trackReading !== false) await beginReading(doc);
         await recordOpen(doc.id);
         if (doc.status !== "available") await setDocumentStatus(doc.id, "available");
         notifyLibraryChanged();

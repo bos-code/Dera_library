@@ -1,7 +1,7 @@
 import { getMeta, setMeta } from "@/db/database";
 import { addSession } from "@/db/reading";
 import { displayTitle } from "@/lib/title";
-import { notifyLibraryChanged, setState } from "@/state/store";
+import { getState, notifyLibraryChanged, setState } from "@/state/store";
 import type { DocumentRecord } from "@/types/document";
 
 /**
@@ -50,6 +50,8 @@ export async function finishReading(now = Date.now()): Promise<void> {
   await setMeta(KEY, null);
   const elapsed = now - p.startedAt;
   if (elapsed < MIN_MS) return;
+  // A running focus session is already timing this reading; don't count it twice.
+  if (getState().focus) return;
   setState({
     readingPrompt: { ...p, suggestedMs: elapsed > UNKNOWN_AFTER_MS ? null : Math.min(elapsed, CAP_MS) },
   });

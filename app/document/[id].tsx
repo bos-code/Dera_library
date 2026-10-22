@@ -5,6 +5,7 @@ import Animated, { useAnimatedStyle, useSharedValue, withSequence, withSpring } 
 import { CollectionPickerSheet } from "@/components/CollectionPickerSheet";
 import { TagPickerSheet } from "@/components/TagPickerSheet";
 import { DocumentCover } from "@/components/DocumentCover";
+import { FocusSheet } from "@/components/Focus";
 import { LogReadingSheet } from "@/components/ReadingSheets";
 import { Button, Card, Chip, EmptyState, Icon, SectionTitle, type IconName } from "@/components/ui";
 import { getDocumentReading, setReadingStatus } from "@/db/reading";
@@ -36,6 +37,7 @@ export default function DocumentScreen() {
   const [sheet, setSheet] = useState<"collections" | "tags" | null>(null);
   const [opening, setOpening] = useState(false);
   const [logging, setLogging] = useState(false);
+  const [focusing, setFocusing] = useState(false);
   const starScale = useSharedValue(1);
   const starStyle = useAnimatedStyle(() => ({ transform: [{ scale: starScale.value }] }));
 
@@ -220,6 +222,13 @@ export default function DocumentScreen() {
                 }`
               : "No reading logged yet. Time is tracked when you open it from Dera."}
           </Text>
+          <Button
+            label="Start a focus session"
+            icon="timer-outline"
+            disabled={unavailable}
+            onPress={() => setFocusing(true)}
+            accessibilityHint="Opens the document and times your reading until you stop"
+          />
         </View>
 
         <SectionTitle action={<Button label="Edit" variant="ghost" onPress={() => setSheet("collections")} />}>
@@ -290,6 +299,7 @@ export default function DocumentScreen() {
       </ScrollView>
 
       <LogReadingSheet visible={logging} onClose={() => setLogging(false)} document={doc} />
+      <FocusSheet visible={focusing} onClose={() => setFocusing(false)} document={doc} />
       <CollectionPickerSheet
         visible={sheet === "collections"}
         title="Collections"

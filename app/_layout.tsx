@@ -18,6 +18,7 @@ import { AuroraField, GradientCanvas } from "@/components/glass";
 import { getDb, getMeta } from "@/db/database";
 import { refreshAccess } from "@/services/access";
 import { loadAppearance } from "@/services/appearance";
+import { loadFocus } from "@/services/focus";
 import { finishReading } from "@/services/readingSession";
 import { ReadingPromptSheet } from "@/components/ReadingSheets";
 import { scanLibrary } from "@/services/scan";
@@ -90,6 +91,7 @@ export default function RootLayout() {
         library: { ...s.library, layout: layout === "grid" ? "grid" : "list" },
       }));
       refreshAccess();
+      await loadFocus();
       void finishReading();
       setReady(true);
     })().catch((e: unknown) => setError(e instanceof Error ? e.message : String(e)));

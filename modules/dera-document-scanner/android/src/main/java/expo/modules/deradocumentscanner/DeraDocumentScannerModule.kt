@@ -148,6 +148,16 @@ class DeraDocumentScannerModule : Module() {
       withContext(Dispatchers.IO) { thumbnails.get(uri, extension.lowercase(), key, width.coerceIn(64, 720)) }
     }
 
+    Function("startFocusNotification") { title: String, startedAt: Double, endsAt: Double? ->
+      FocusNotifications.start(context, title, startedAt.toLong(), endsAt?.toLong())
+      true
+    }
+
+    Function("stopFocusNotification") {
+      FocusNotifications.stop(context)
+      true
+    }
+
     AsyncFunction("clearThumbnails") Coroutine { ->
       withContext(Dispatchers.IO) { thumbnails.clear() }
     }
