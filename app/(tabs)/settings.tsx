@@ -10,6 +10,7 @@ import { setMeta } from "@/db/database";
 import { getLibraryStats } from "@/db/documents";
 import { getSources, removeSource, type Source } from "@/db/sources";
 import { formatRelativeDate, plural } from "@/lib/format";
+import { clearCovers } from "@/lib/covers";
 import { useQuery } from "@/lib/useQuery";
 import { scanner } from "@/native/scanner";
 import { requestFullAccess } from "@/services/access";
@@ -212,6 +213,17 @@ export default function SettingsScreen() {
           subtitle={stats ? `${plural(stats.missing + stats.revoked, "document")} can't be reached` : undefined}
           onPress={() => router.push("/missing")}
           right={<Icon name="chevron-right" color={t.textFaint} />}
+        />
+        <ListRow
+          icon="image-refresh-outline"
+          title="Refresh covers"
+          subtitle="Re-render document covers the next time they're shown"
+          onPress={() =>
+            guard("covers", async () => {
+              await clearCovers();
+              notifyLibraryChanged();
+            })
+          }
         />
       </Card>
 

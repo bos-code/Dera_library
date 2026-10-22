@@ -3,10 +3,12 @@ import { useEffect, useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { DocumentBrowser } from "@/components/DocumentBrowser";
+import { Shelf } from "@/components/Shelf";
 import { ScanBanner } from "@/components/ScanBanner";
 import { SearchBar } from "@/components/SearchBar";
-import { Button, Chip, EmptyState, Icon, IconButton } from "@/components/ui";
-import { getLibraryStats, searchDocuments } from "@/db/documents";
+import { Button, Chip, EmptyState, Icon, IconButton, type IconName } from "@/components/ui";
+import { setMeta } from "@/db/database";
+import { getLibraryStats, getShelfCounts, searchDocuments, SMART_SHELVES, type SmartShelf } from "@/db/documents";
 import { TYPE_FILTERS } from "@/lib/fileTypes";
 import { plural } from "@/lib/format";
 import { useDebounced, useQuery } from "@/lib/useQuery";
@@ -31,6 +33,15 @@ const VIEWS: Array<{ value: LibraryView; label: string; icon: "bookshelf" | "sta
   { value: "recent", label: "Recent", icon: "history" },
 ];
 
+const SHELF_INFO: Record<SmartShelf, { label: string; icon: IconName }> = {
+  whatsapp: { label: "WhatsApp", icon: "whatsapp" },
+  telegram: { label: "Telegram", icon: "send-outline" },
+  downloads: { label: "Downloads", icon: "download-outline" },
+  large: { label: "Large files", icon: "weight" },
+  untouched: { label: "Not opened in a year", icon: "sleep" },
+  duplicates: { label: "Duplicates", icon: "content-duplicate" },
+};
+
 /** Rescan automatically on launch when the last scan is older than this. */
 const AUTO_SCAN_AFTER_MS = 10 * 60_000;
 
@@ -52,14 +63,33 @@ export default function LibraryScreen() {
   }, []);
 
   const { data: docs } = useQuery(
-    () => searchDocuments({ text: filters.text, type: filters.type, sort: filters.sort, view: filters.view }),
-    [filters.text, filters.type, filters.sort, filters.view],
+    () =>
+      searchDocuments({ text: filters.text, type: filters.type, sort: filters.sort, view: filters.view, shelf: filters.shelf }),
+    [filters.text, filters.type, filters.sort, filters.view, filters.shelf],
   );
   const { data: stats } = useQuery(getLibraryStats, []);
+  // The home state (nothing searched or filtered) leads with shelves before the full list.
+  const home = !filters.text && filters.type === "all" && filters.view === "all" && !filters.shelf;
+  const { data: shelves } = useQuery(
+    async () =>
+      home
+        ? {
+            recent: await searchDocuments({ view: "recent", limit: 12 }),
+            favorites: await searchDocuments({ view: "favorites", sort: "name-asc", limit: 12 }),
+            counts: await getShelfCounts(),
+          }
+        : null,
+    [home],
+  );
+  const toggleLayout = () => {
+    const layout = filters.layout === "grid" ? "list" : "grid";
+    setFilters({ layout });
+    void setMeta("library_layout", layout);
+  };
 
   const sort = SORTS.find((s) => s.value === filters.sort) ?? SORTS[0];
   const cycleSort = () => setFilters({ sort: SORTS[(SORTS.indexOf(sort) + 1) % SORTS.length].value });
-  const filtered = !!filters.text || filters.type !== "all" || filters.view !== "all";
+  const filtered = !home;
   const noAccess = access && !access.allFilesAccess;
 
   const header = (
@@ -93,6 +123,34 @@ export default function LibraryScreen() {
           </Pressable>
         ) : null}
       </View>
+      {home && shelves ? (
+        <View style={{ gap: spacing.lg, paddingVertical: spacing.xs }}>
+          <Shelf title="Continue reading" documents={shelves.recent} onSeeAll={() => setFilters({ view: "recent" })} />
+          <Shelf title="Favorites" documents={shelves.favorites} onSeeAll={() => setFilters({ view: "favorites" })} />
+          {SMART_SHELVES.some((k) => shelves.counts[k] > 0) ? (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
+              {SMART_SHELVES.filter((k) => shelves.counts[k] > 0).map((k) => (
+                <Chip
+                  key={k}
+                  label={SHELF_INFO[k].label}
+                  icon={SHELF_INFO[k].icon}
+                  count={shelves.counts[k]}
+                  onPress={() => setFilters({ shelf: k })}
+                />
+              ))}
+            </ScrollView>
+          ) : null}
+        </View>
+      ) : null}
+      {filters.shelf ? (
+        <View style={styles.activeShelf}>
+          <Icon name={SHELF_INFO[filters.shelf].icon} color={t.primary} />
+          <Text accessibilityRole="header" style={[type.heading, { color: t.text, flex: 1 }]}>
+            {SHELF_INFO[filters.shelf].label}
+          </Text>
+          <IconButton icon="close" label="Close shelf" onPress={() => setFilters({ shelf: null })} />
+        </View>
+      ) : null}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
         {VIEWS.map((v) => (
           <Chip
@@ -115,7 +173,9 @@ export default function LibraryScreen() {
         ))}
       </ScrollView>
       <View style={styles.listMeta}>
-        <Text style={[type.small, { color: t.textMuted }]}>{docs ? plural(docs.length, "result") : " "}</Text>
+        <Text style={[type.small, { color: t.textMuted, flex: 1 }]}>
+          {docs ? plural(docs.length, home ? "document" : "result") : " "}
+        </Text>
         {filters.view !== "recent" ? (
           <Pressable
             onPress={cycleSort}
@@ -128,6 +188,12 @@ export default function LibraryScreen() {
             <Text style={[type.smallStrong, { color: t.primary }]}>{sort.label}</Text>
           </Pressable>
         ) : null}
+        <IconButton
+          icon={filters.layout === "grid" ? "view-list-outline" : "view-grid-outline"}
+          label={filters.layout === "grid" ? "Show as list" : "Show as covers"}
+          onPress={toggleLayout}
+          color={t.primary}
+        />
       </View>
     </View>
   );
@@ -165,6 +231,7 @@ export default function LibraryScreen() {
       documents={docs ?? []}
       header={header}
       empty={empty}
+      layout={filters.layout}
       refreshing={false}
       onRefresh={() => void scanLibrary()}
     />
@@ -179,10 +246,12 @@ const styles = StyleSheet.create({
   divider: { width: 1, height: 24, marginHorizontal: 2 },
   listMeta: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: spacing.lg,
-    minHeight: 32,
+    gap: spacing.sm,
+    paddingLeft: spacing.lg,
+    paddingRight: spacing.xs,
+    minHeight: 40,
   },
   sort: { flexDirection: "row", alignItems: "center", gap: 4 },
+  activeShelf: { flexDirection: "row", alignItems: "center", gap: spacing.sm, paddingLeft: spacing.lg, paddingRight: spacing.xs },
 });

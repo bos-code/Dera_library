@@ -4,7 +4,7 @@ import { corner, type, useTheme } from "@/theme";
 import type { DocumentType } from "@/types/document";
 import { Icon, type IconName } from "./ui";
 
-const ICONS: Record<DocumentType, IconName> = {
+export const TYPE_ICONS: Record<DocumentType, IconName> = {
   pdf: "file-pdf-box",
   word: "file-word-box",
   sheet: "file-table-box",
@@ -23,7 +23,7 @@ export function TypeBadge({ type, extension, size = 48 }: { type: DocumentType; 
       accessibilityLabel={`${TYPE_LABEL[type]}, ${extension.toUpperCase()}`}
       style={[styles.badge, { width: size, height: size, backgroundColor: color + (t.dark ? "26" : "1A") }]}
     >
-      <Icon name={ICONS[type]} size={size * 0.5} color={color} />
+      <Icon name={TYPE_ICONS[type]} size={size * 0.5} color={color} />
       <Text numberOfLines={1} style={[styles.ext, { color, fontSize: Math.max(9, size * 0.2) }]}>
         {extension.toUpperCase().slice(0, 4)}
       </Text>

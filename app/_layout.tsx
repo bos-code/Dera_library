@@ -72,12 +72,18 @@ export default function RootLayout() {
   useEffect(() => {
     (async () => {
       await getDb();
-      const [onboarded, theme, lastScan] = await Promise.all([getMeta("onboarded"), getMeta("theme"), getMeta("last_scan_at")]);
-      setState({
+      const [onboarded, theme, lastScan, layout] = await Promise.all([
+        getMeta("onboarded"),
+        getMeta("theme"),
+        getMeta("last_scan_at"),
+        getMeta("library_layout"),
+      ]);
+      setState((s) => ({
         onboarded: onboarded === "1",
         themePreference: (theme as ThemePreference | null) ?? "system",
         lastScanAt: lastScan ? Number(lastScan) : null,
-      });
+        library: { ...s.library, layout: layout === "grid" ? "grid" : "list" },
+      }));
       refreshAccess();
       setReady(true);
     })().catch((e: unknown) => setError(e instanceof Error ? e.message : String(e)));

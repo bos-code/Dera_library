@@ -21,7 +21,48 @@ export interface DocumentQuery {
   tagId?: string;
   collectionId?: string;
   status?: DocumentStatus | "any";
+  shelf?: SmartShelf | null;
   limit?: number;
+}
+
+/** Automatic shelves built from what the index already knows: folder, size, history and duplicates. */
+export type SmartShelf = "whatsapp" | "telegram" | "downloads" | "large" | "untouched" | "duplicates";
+
+const LARGE_BYTES = 20 * 1024 * 1024;
+const UNTOUCHED_MS = 365 * 86_400_000;
+
+function shelfCondition(shelf: SmartShelf, now: number): { sql: string; args: Array<string | number> } {
+  switch (shelf) {
+    case "whatsapp":
+      return { sql: "d.folder LIKE '%whatsapp%'", args: [] };
+    case "telegram":
+      return { sql: "d.folder LIKE '%telegram%'", args: [] };
+    case "downloads":
+      return { sql: "(d.folder LIKE 'download%' OR d.folder LIKE '%/download%')", args: [] };
+    case "large":
+      return { sql: "d.size >= ?", args: [LARGE_BYTES] };
+    case "untouched":
+      return { sql: "(d.last_opened_at IS NULL AND d.modified_at < ?)", args: [now - UNTOUCHED_MS] };
+    case "duplicates":
+      return {
+        sql: "EXISTS (SELECT 1 FROM documents x WHERE x.status = 'available' AND x.name = d.name AND x.size = d.size AND x.id != d.id)",
+        args: [],
+      };
+  }
+}
+
+export const SMART_SHELVES: SmartShelf[] = ["whatsapp", "telegram", "downloads", "large", "untouched", "duplicates"];
+
+/** Available-document counts per smart shelf, in one pass. */
+export async function getShelfCounts(now = Date.now()): Promise<Record<SmartShelf, number>> {
+  const db = await getDb();
+  const parts = SMART_SHELVES.map((shelf) => ({ shelf, ...shelfCondition(shelf, now) }));
+  const row = await db.getFirstAsync<Record<SmartShelf, number | null>>(
+    `SELECT ${parts.map((p) => `SUM(CASE WHEN ${p.sql} THEN 1 ELSE 0 END) AS ${p.shelf}`).join(", ")}
+     FROM documents d WHERE d.status = 'available'`,
+    ...parts.flatMap((p) => p.args),
+  );
+  return Object.fromEntries(SMART_SHELVES.map((shelf) => [shelf, row?.[shelf] ?? 0])) as Record<SmartShelf, number>;
 }
 
 let ftsAvailable: boolean | null = null;
@@ -58,6 +99,11 @@ export async function searchDocuments(q: DocumentQuery = {}): Promise<DocumentRe
   if (q.collectionId) {
     where.push("d.id IN (SELECT document_id FROM collection_documents WHERE collection_id = ?)");
     args.push(q.collectionId);
+  }
+  if (q.shelf) {
+    const cond = shelfCondition(q.shelf, Date.now());
+    where.push(cond.sql);
+    args.push(...cond.args);
   }
   const words = terms(q.text ?? "");
   if (words.length) {

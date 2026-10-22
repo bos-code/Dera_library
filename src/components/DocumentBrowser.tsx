@@ -1,7 +1,7 @@
 import { FlashList } from "@shopify/flash-list";
 import { router } from "expo-router";
 import { useCallback, useEffect, useMemo, useState, type ReactElement } from "react";
-import { Alert, BackHandler, RefreshControl, StyleSheet, Text, View } from "react-native";
+import { Alert, BackHandler, RefreshControl, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import Animated, { SlideInDown, SlideOutDown } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { setFavorite } from "@/db/activity";
@@ -13,6 +13,7 @@ import { notifyLibraryChanged } from "@/state/store";
 import { corner, spacing, type, useTheme } from "@/theme";
 import type { DocumentRecord } from "@/types/document";
 import { CollectionPickerSheet } from "./CollectionPickerSheet";
+import { DocumentCard } from "./DocumentCard";
 import { DocumentRow } from "./DocumentRow";
 import { TagPickerSheet } from "./TagPickerSheet";
 import { IconButton, type IconName } from "./ui";
@@ -34,6 +35,7 @@ export function DocumentBrowser({
   refreshing,
   onRefresh,
   extraActions = [],
+  layout = "list",
 }: {
   documents: DocumentRecord[];
   header?: ReactElement;
@@ -41,6 +43,8 @@ export function DocumentBrowser({
   refreshing?: boolean;
   onRefresh?: () => void;
   extraActions?: BulkAction[];
+  /** "grid" shows covers in columns, like books on a shelf. */
+  layout?: "list" | "grid";
 }) {
   const t = useTheme();
   const insets = useSafeAreaInsets();
@@ -48,6 +52,17 @@ export function DocumentBrowser({
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [sheet, setSheet] = useState<"collections" | "tags" | null>(null);
   const selecting = selected.size > 0;
+  const { width: screenWidth } = useWindowDimensions();
+  const grid = useMemo(() => {
+    const edge = spacing.lg;
+    const gap = spacing.md;
+    const columns = Math.max(3, Math.floor((screenWidth - 2 * edge + gap) / (112 + gap)));
+    const cardWidth = Math.floor((screenWidth - 2 * edge - (columns - 1) * gap) / columns);
+    const slot = screenWidth / columns;
+    // FlashList gives each column an equal slot; offset cards so outer margins and gutters are even.
+    const offset = (col: number) => edge + col * (cardWidth + gap) - col * slot;
+    return { columns, cardWidth, offset };
+  }, [screenWidth]);
 
   // Drop selections for rows that are no longer listed.
   useEffect(() => {
@@ -103,12 +118,33 @@ export function DocumentBrowser({
   return (
     <View style={{ flex: 1 }}>
       <FlashList
+        key={layout === "grid" ? `grid-${grid.columns}` : "list"}
         data={documents}
         keyExtractor={(d) => String(d.id)}
         extraData={selected}
-        renderItem={({ item }) => (
-          <DocumentRow doc={item} selecting={selecting} selected={selected.has(item.id)} onPress={onPress} onLongPress={toggle} />
-        )}
+        numColumns={layout === "grid" ? grid.columns : 1}
+        renderItem={({ item, index }) =>
+          layout === "grid" ? (
+            <View style={{ paddingLeft: grid.offset(index % grid.columns), paddingBottom: spacing.lg }}>
+              <DocumentCard
+                doc={item}
+                width={grid.cardWidth}
+                selecting={selecting}
+                selected={selected.has(item.id)}
+                onPress={onPress}
+                onLongPress={toggle}
+              />
+            </View>
+          ) : (
+            <DocumentRow
+              doc={item}
+              selecting={selecting}
+              selected={selected.has(item.id)}
+              onPress={onPress}
+              onLongPress={toggle}
+            />
+          )
+        }
         ListHeaderComponent={header}
         ListEmptyComponent={empty}
         // The tab bar floats over the list, so its height has to be paid back as padding.

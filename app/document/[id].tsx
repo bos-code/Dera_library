@@ -4,7 +4,7 @@ import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-nati
 import Animated, { useAnimatedStyle, useSharedValue, withSequence, withSpring } from "react-native-reanimated";
 import { CollectionPickerSheet } from "@/components/CollectionPickerSheet";
 import { TagPickerSheet } from "@/components/TagPickerSheet";
-import { TypeBadge } from "@/components/TypeBadge";
+import { DocumentCover } from "@/components/DocumentCover";
 import { Button, Card, EmptyState, Icon, SectionTitle } from "@/components/ui";
 import { getOpenCount, setFavorite } from "@/db/activity";
 import { getAllCollections, getDocumentCollectionIds, setDocumentCollections } from "@/db/collections";
@@ -12,6 +12,7 @@ import { forgetDocuments, getDocument } from "@/db/documents";
 import { getDocumentTags, tagDocuments, untagDocument } from "@/db/tags";
 import { TYPE_LABEL } from "@/lib/fileTypes";
 import { formatDateTime, formatSize } from "@/lib/format";
+import { displayTitle } from "@/lib/title";
 import { useQuery } from "@/lib/useQuery";
 import { openDocument } from "@/services/open";
 import { scanLibrary } from "@/services/scan";
@@ -103,6 +104,7 @@ export default function DocumentScreen() {
     );
 
   const details: Array<[string, string]> = [
+    ["File name", doc.name],
     ["Type", `${TYPE_LABEL[doc.type]} (.${doc.extension})`],
     ["Size", formatSize(doc.size)],
     ["Modified", doc.modifiedAt ? formatDateTime(doc.modifiedAt) : "Unknown"],
@@ -133,9 +135,9 @@ export default function DocumentScreen() {
       />
       <ScrollView contentContainerStyle={{ paddingBottom: 48 }}>
         <View style={styles.hero}>
-          <TypeBadge type={doc.type} extension={doc.extension} size={72} />
+          <DocumentCover doc={doc} width={132} />
           <Text selectable accessibilityRole="header" style={[styles.name, { color: t.text }]}>
-            {doc.name}
+            {displayTitle(doc.name)}
           </Text>
           <Text style={{ color: t.textMuted, fontSize: font.small }}>
             {formatSize(doc.size)} · {doc.folder || "Unknown folder"}

@@ -48,6 +48,8 @@ interface NativeScanner {
   pickImportFile(): Promise<string | null>;
   writeText(uri: string, text: string): Promise<boolean>;
   readText(uri: string): Promise<string>;
+  getThumbnail(uri: string, extension: string, key: string, width: number): Promise<string | null>;
+  clearThumbnails(): Promise<boolean>;
   addListener(event: "onScanProgress", listener: (p: ScanProgress) => void): EventSubscription;
 }
 

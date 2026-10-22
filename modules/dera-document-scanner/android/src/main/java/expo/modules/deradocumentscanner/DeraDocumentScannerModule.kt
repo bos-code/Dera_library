@@ -19,10 +19,13 @@ import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import expo.modules.kotlin.Promise
 import expo.modules.kotlin.exception.CodedException
+import expo.modules.kotlin.functions.Coroutine
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 import java.io.File
 import java.io.FileNotFoundException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 private const val REQUEST_PICK_FOLDER = 48101
 private const val REQUEST_PICK_FILES = 48102
@@ -58,6 +61,7 @@ private val SKIPPED_RELATIVE_DIRS = setOf("Android/data", "Android/obb")
 
 class DeraDocumentScannerModule : Module() {
   private var pendingPromise: Promise? = null
+  private val thumbnails by lazy { ThumbnailCache(context) }
   private var pendingRequest = 0
 
   private val context: Context
@@ -100,33 +104,52 @@ class DeraDocumentScannerModule : Module() {
      * storage tree is walked, so documents MediaStore does not index are found too. Without it, only what
      * MediaStore exposes to this app is returned.
      */
-    AsyncFunction("scanDevice") {
-      val sdk = Build.VERSION.SDK_INT
-      val fullAccess = if (sdk >= Build.VERSION_CODES.R) {
-        Environment.isExternalStorageManager()
-      } else {
-        ContextCompat.checkSelfPermission(context, Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED
-      }
-      val items = if (fullAccess) walkStorage() else queryMediaStore()
-      mapOf("mode" to if (fullAccess) "all-files" else "mediastore", "items" to items)
-    }
-
-    AsyncFunction("scanTree") { treeUri: String ->
-      val uri = Uri.parse(treeUri)
-      if (!hasPersistedPermission(uri)) {
-        return@AsyncFunction mapOf("status" to "revoked", "items" to emptyList<Map<String, Any?>>())
-      }
-      try {
-        mapOf("status" to "ok", "items" to walkTree(uri))
-      } catch (_: SecurityException) {
-        mapOf("status" to "revoked", "items" to emptyList<Map<String, Any?>>())
-      } catch (_: FileNotFoundException) {
-        mapOf("status" to "missing", "items" to emptyList<Map<String, Any?>>())
+    // Long-running file work runs as coroutines on the IO dispatcher. Plain AsyncFunctions share one queue
+    // thread with every Expo module (expo-sqlite included), so a storage walk there would stall the UI's queries.
+    AsyncFunction("scanDevice") Coroutine { ->
+      withContext(Dispatchers.IO) {
+        val sdk = Build.VERSION.SDK_INT
+        val fullAccess = if (sdk >= Build.VERSION_CODES.R) {
+          Environment.isExternalStorageManager()
+        } else {
+          ContextCompat.checkSelfPermission(context, Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED
+        }
+        val items = if (fullAccess) walkStorage() else queryMediaStore()
+        mapOf("mode" to if (fullAccess) "all-files" else "mediastore", "items" to items)
       }
     }
 
-    AsyncFunction("describeUris") { uris: List<String> ->
-      uris.mapNotNull { describeSingleDocument(Uri.parse(it)) }
+    AsyncFunction("scanTree") Coroutine { treeUri: String ->
+      withContext(Dispatchers.IO) {
+        val uri = Uri.parse(treeUri)
+        if (!hasPersistedPermission(uri)) {
+          mapOf("status" to "revoked", "items" to emptyList<Map<String, Any?>>())
+        } else {
+          try {
+            mapOf("status" to "ok", "items" to walkTree(uri))
+          } catch (_: SecurityException) {
+            mapOf("status" to "revoked", "items" to emptyList<Map<String, Any?>>())
+          } catch (_: FileNotFoundException) {
+            mapOf("status" to "missing", "items" to emptyList<Map<String, Any?>>())
+          }
+        }
+      }
+    }
+
+    AsyncFunction("describeUris") Coroutine { uris: List<String> ->
+      withContext(Dispatchers.IO) { uris.mapNotNull { describeSingleDocument(Uri.parse(it)) } }
+    }
+
+    /**
+     * Returns a file:// URI for a cached cover image, or null when the document has none. Covers are rendered
+     * once and cached under [key]; a marker file remembers documents without a cover so they aren't retried.
+     */
+    AsyncFunction("getThumbnail") Coroutine { uri: String, extension: String, key: String, width: Int ->
+      withContext(Dispatchers.IO) { thumbnails.get(uri, extension.lowercase(), key, width.coerceIn(64, 720)) }
+    }
+
+    AsyncFunction("clearThumbnails") Coroutine { ->
+      withContext(Dispatchers.IO) { thumbnails.clear() }
     }
 
     AsyncFunction("pickFolder") { promise: Promise ->
@@ -156,7 +179,7 @@ class DeraDocumentScannerModule : Module() {
       true
     }
 
-    AsyncFunction("checkDocument") { uri: String -> checkAccess(uri) }
+    AsyncFunction("checkDocument") Coroutine { uri: String -> withContext(Dispatchers.IO) { checkAccess(uri) } }
 
     AsyncFunction("openDocument") { uri: String, mimeType: String ->
       val access = checkAccess(uri)

@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from "react";
 import type { ScanProgress, StorageAccess } from "@/native/scanner";
+import type { SmartShelf } from "@/db/documents";
 import type { DocumentType, LibraryView, ScanSummary, SortMode } from "@/types/document";
 
 export type ThemePreference = "system" | "light" | "dark";
@@ -15,7 +16,14 @@ export interface AppState {
   lastSummary: ScanSummary | null;
   lastScanAt: number | null;
   scanError: string | null;
-  library: { text: string; type: DocumentType | "all"; sort: SortMode; view: LibraryView };
+  library: {
+    text: string;
+    type: DocumentType | "all";
+    sort: SortMode;
+    view: LibraryView;
+    shelf: SmartShelf | null;
+    layout: "list" | "grid";
+  };
 }
 
 let state: AppState = {
@@ -28,7 +36,7 @@ let state: AppState = {
   lastSummary: null,
   lastScanAt: null,
   scanError: null,
-  library: { text: "", type: "all", sort: "modified-desc", view: "all" },
+  library: { text: "", type: "all", sort: "modified-desc", view: "all", shelf: null, layout: "list" },
 };
 
 const listeners = new Set<() => void>();

@@ -138,10 +138,14 @@ END;
 INSERT OR REPLACE INTO app_meta(key,value) VALUES('fts','1');
 `;
 
+/** v4: lookup index for the duplicates shelf and backup matching (name + size). */
+const v4 = `CREATE INDEX IF NOT EXISTS idx_documents_name_size ON documents(name, size);`;
+
 export const migrations: Migration[] = [
   { version: 1, up: (db) => db.execAsync(v1) },
   { version: 2, rebuildsTables: true, up: (db) => db.execAsync(v2) },
   { version: 3, optional: true, up: (db) => db.execAsync(v3) },
+  { version: 4, up: (db) => db.execAsync(v4) },
 ];
 
 export async function migrate(db: SQLiteDatabase): Promise<void> {

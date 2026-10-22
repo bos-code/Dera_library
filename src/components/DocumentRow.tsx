@@ -1,9 +1,10 @@
 import { memo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { formatRelativeDate, formatSize } from "@/lib/format";
+import { displayTitle } from "@/lib/title";
 import { radius, spacing, type, useTheme } from "@/theme";
 import type { DocumentRecord } from "@/types/document";
-import { TypeBadge } from "./TypeBadge";
+import { DocumentCover } from "./DocumentCover";
 import { Icon } from "./ui";
 
 interface Props {
@@ -17,6 +18,7 @@ interface Props {
 function DocumentRowImpl({ doc, selected, selecting, onPress, onLongPress }: Props) {
   const t = useTheme();
   const unavailable = doc.status !== "available";
+  const title = displayTitle(doc.name);
   const meta = [formatSize(doc.size), formatRelativeDate(doc.modifiedAt)].join(" · ");
   return (
     <Pressable
@@ -26,7 +28,7 @@ function DocumentRowImpl({ doc, selected, selecting, onPress, onLongPress }: Pro
       android_ripple={{ color: t.border }}
       accessibilityRole={selecting ? "checkbox" : "button"}
       accessibilityState={selecting ? { checked: !!selected } : undefined}
-      accessibilityLabel={`${doc.name}. ${meta}${doc.folder ? `. In ${doc.folder}` : ""}${doc.isFavorite ? ". Favorite" : ""}${
+      accessibilityLabel={`${title}, ${doc.extension.toUpperCase()}. ${meta}${doc.folder ? `. In ${doc.folder}` : ""}${doc.isFavorite ? ". Favorite" : ""}${
         unavailable ? `. ${doc.status === "missing" ? "Missing" : "No access"}` : ""
       }`}
       accessibilityHint={selecting ? "Toggles selection" : "Opens document details. Long press to select"}
@@ -42,12 +44,10 @@ function DocumentRowImpl({ doc, selected, selecting, onPress, onLongPress }: Pro
           {selected ? <Icon name="check" size={16} color={t.onPrimary} /> : null}
         </View>
       ) : null}
-      <View style={{ opacity: unavailable ? 0.45 : 1 }}>
-        <TypeBadge type={doc.type} extension={doc.extension} />
-      </View>
+      <DocumentCover doc={doc} width={40} />
       <View style={styles.body}>
         <Text numberOfLines={2} style={[styles.name, { color: unavailable ? t.textMuted : t.text }]}>
-          {doc.name}
+          {title}
         </Text>
         <View style={styles.metaRow}>
           {doc.isFavorite ? <Icon name="star" size={14} color={t.warning} /> : null}
