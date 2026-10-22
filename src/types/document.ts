@@ -2,6 +2,7 @@ export type DocumentType = "pdf" | "word" | "sheet" | "slides" | "text" | "epub"
 export type DocumentStatus = "available" | "missing" | "revoked";
 export type SortMode = "modified-desc" | "name-asc" | "size-desc";
 export type LibraryView = "all" | "favorites" | "recent";
+export type ReadingStatus = "to-read" | "reading" | "done";
 
 export interface DocumentRecord {
   id: number;
@@ -19,6 +20,7 @@ export interface DocumentRecord {
   missingSince: number | null;
   lastOpenedAt: number | null;
   isFavorite: number;
+  readingStatus: ReadingStatus | null;
 }
 
 export interface ScanSummary {

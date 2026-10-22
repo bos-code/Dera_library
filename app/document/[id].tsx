@@ -5,19 +5,29 @@ import Animated, { useAnimatedStyle, useSharedValue, withSequence, withSpring } 
 import { CollectionPickerSheet } from "@/components/CollectionPickerSheet";
 import { TagPickerSheet } from "@/components/TagPickerSheet";
 import { DocumentCover } from "@/components/DocumentCover";
-import { Button, Card, EmptyState, Icon, SectionTitle } from "@/components/ui";
+import { LogReadingSheet } from "@/components/ReadingSheets";
+import { Button, Card, Chip, EmptyState, Icon, SectionTitle, type IconName } from "@/components/ui";
+import { getDocumentReading, setReadingStatus } from "@/db/reading";
+import { formatDuration } from "@/lib/readingStats";
+import type { ReadingStatus } from "@/types/document";
 import { getOpenCount, setFavorite } from "@/db/activity";
 import { getAllCollections, getDocumentCollectionIds, setDocumentCollections } from "@/db/collections";
 import { forgetDocuments, getDocument } from "@/db/documents";
 import { getDocumentTags, tagDocuments, untagDocument } from "@/db/tags";
 import { TYPE_LABEL } from "@/lib/fileTypes";
-import { formatDateTime, formatSize } from "@/lib/format";
+import { formatDateTime, formatRelativeDate, formatSize, plural } from "@/lib/format";
 import { displayTitle } from "@/lib/title";
 import { useQuery } from "@/lib/useQuery";
 import { openDocument } from "@/services/open";
 import { scanLibrary } from "@/services/scan";
 import { notifyLibraryChanged } from "@/state/store";
-import { font, radius, spacing, useTheme } from "@/theme";
+import { font, radius, spacing, type, useTheme } from "@/theme";
+
+const READING_STATUSES: Array<{ value: ReadingStatus; label: string; icon: IconName }> = [
+  { value: "to-read", label: "To read", icon: "bookmark-outline" },
+  { value: "reading", label: "Reading", icon: "book-open-variant" },
+  { value: "done", label: "Done", icon: "check-circle-outline" },
+];
 
 export default function DocumentScreen() {
   const t = useTheme();
@@ -25,17 +35,19 @@ export default function DocumentScreen() {
   const id = Number(idParam);
   const [sheet, setSheet] = useState<"collections" | "tags" | null>(null);
   const [opening, setOpening] = useState(false);
+  const [logging, setLogging] = useState(false);
   const starScale = useSharedValue(1);
   const starStyle = useAnimatedStyle(() => ({ transform: [{ scale: starScale.value }] }));
 
   const { data } = useQuery(async () => {
     const doc = await getDocument(id);
     if (!doc) return null;
-    const [tags, collectionIds, collections, opens] = await Promise.all([
+    const [tags, collectionIds, collections, opens, reading] = await Promise.all([
       getDocumentTags(id),
       getDocumentCollectionIds(id),
       getAllCollections(),
       getOpenCount(id),
+      getDocumentReading(id),
     ]);
     const byId = new Map(collections.map((c) => [c.id, c]));
     const pathOf = (cid: string) => {
@@ -53,6 +65,7 @@ export default function DocumentScreen() {
       collectionIds,
       collections: collectionIds.map((cid) => ({ id: cid, label: pathOf(cid) })).sort((a, b) => a.label.localeCompare(b.label)),
       opens,
+      reading,
     };
   }, [id]);
 
@@ -69,7 +82,7 @@ export default function DocumentScreen() {
       </>
     );
   }
-  const { doc, tags, collections, collectionIds, opens } = data;
+  const { doc, tags, collections, collectionIds, opens, reading } = data;
   const unavailable = doc.status !== "available";
 
   const open = async () => {
@@ -182,6 +195,33 @@ export default function DocumentScreen() {
           />
         </View>
 
+        <SectionTitle action={<Button label="Log time" icon="plus" variant="ghost" onPress={() => setLogging(true)} />}>
+          Reading
+        </SectionTitle>
+        <View style={{ paddingHorizontal: spacing.lg, gap: spacing.sm }}>
+          <View style={styles.chips}>
+            {READING_STATUSES.map((st) => (
+              <Chip
+                key={st.value}
+                label={st.label}
+                icon={st.icon}
+                selected={doc.readingStatus === st.value}
+                onPress={async () => {
+                  await setReadingStatus([doc.id], doc.readingStatus === st.value ? null : st.value);
+                  notifyLibraryChanged();
+                }}
+              />
+            ))}
+          </View>
+          <Text style={[type.small, { color: t.textMuted }]}>
+            {reading.sessions
+              ? `${formatDuration(reading.totalMs)} read across ${plural(reading.sessions, "session")}${
+                  reading.lastReadAt ? ` · last ${formatRelativeDate(reading.lastReadAt).toLowerCase()}` : ""
+                }`
+              : "No reading logged yet. Time is tracked when you open it from Dera."}
+          </Text>
+        </View>
+
         <SectionTitle action={<Button label="Edit" variant="ghost" onPress={() => setSheet("collections")} />}>
           Collections
         </SectionTitle>
@@ -249,6 +289,7 @@ export default function DocumentScreen() {
         </Card>
       </ScrollView>
 
+      <LogReadingSheet visible={logging} onClose={() => setLogging(false)} document={doc} />
       <CollectionPickerSheet
         visible={sheet === "collections"}
         title="Collections"

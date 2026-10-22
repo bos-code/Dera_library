@@ -14,6 +14,7 @@ import { clearCovers } from "@/lib/covers";
 import { useQuery } from "@/lib/useQuery";
 import { scanner } from "@/native/scanner";
 import { requestFullAccess } from "@/services/access";
+import { updateAppearance } from "@/services/appearance";
 import { addFiles, addFolder, scanLibrary } from "@/services/scan";
 import { notifyLibraryChanged, setState, useAppState, type ThemePreference } from "@/state/store";
 import { font, spacing, useTheme } from "@/theme";
@@ -30,7 +31,7 @@ export default function SettingsScreen() {
   const access = useAppState((s) => s.access);
   const scanning = useAppState((s) => s.scanning);
   const lastScanAt = useAppState((s) => s.lastScanAt);
-  const theme = useAppState((s) => s.themePreference);
+  const appearance = useAppState((s) => s.appearance);
   const { data: sources } = useQuery(getSources, []);
   const { data: stats } = useQuery(getLibraryStats, []);
   const [busy, setBusy] = useState<string | null>(null);
@@ -233,14 +234,20 @@ export default function SettingsScreen() {
           <Chip
             key={th.value}
             label={th.label}
-            selected={theme === th.value}
-            onPress={() => {
-              setState({ themePreference: th.value });
-              void setMeta("theme", th.value);
-            }}
+            selected={appearance.mode === th.value}
+            onPress={() => updateAppearance({ mode: th.value })}
           />
         ))}
       </View>
+      <Card style={{ marginHorizontal: spacing.lg, marginTop: spacing.md }}>
+        <ListRow
+          icon="palette-outline"
+          title="Themes, accent & layout"
+          subtitle="Choose light and dark themes, accent colour, glass or solid surfaces, density"
+          onPress={() => router.push("/appearance")}
+          right={<Icon name="chevron-right" color={t.textFaint} />}
+        />
+      </Card>
 
       <SectionTitle>Backup</SectionTitle>
       <Card style={styles.card}>

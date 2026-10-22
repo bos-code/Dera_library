@@ -5,11 +5,41 @@ import type { DocumentType, LibraryView, ScanSummary, SortMode } from "@/types/d
 
 export type ThemePreference = "system" | "light" | "dark";
 
+export interface Appearance {
+  mode: ThemePreference;
+  /** Preset ids used in light and dark mode. */
+  light: string;
+  dark: string;
+  /** Accent id overriding the preset's own colour, or null. */
+  accent: string | null;
+  surfaces: "glass" | "solid";
+  density: "comfortable" | "compact";
+}
+
+export interface ReadingPrompt {
+  documentId: number;
+  documentName: string;
+  startedAt: number;
+  /** Measured time away, capped; null when too long ago to guess (the user picks). */
+  suggestedMs: number | null;
+}
+
+export const DEFAULT_APPEARANCE: Appearance = {
+  mode: "system",
+  light: "paper",
+  dark: "ink",
+  accent: null,
+  surfaces: "glass",
+  density: "comfortable",
+};
+
 export interface AppState {
   /** Bumped after any change to the index or organization; screens re-query when it changes. */
   libraryVersion: number;
   onboarded: boolean | null;
-  themePreference: ThemePreference;
+  appearance: Appearance;
+  /** A finished out-of-app reading session waiting for the user to confirm its length. */
+  readingPrompt: ReadingPrompt | null;
   access: StorageAccess | null;
   scanning: boolean;
   progress: ScanProgress | null;
@@ -29,7 +59,8 @@ export interface AppState {
 let state: AppState = {
   libraryVersion: 0,
   onboarded: null,
-  themePreference: "system",
+  appearance: DEFAULT_APPEARANCE,
+  readingPrompt: null,
   access: null,
   scanning: false,
   progress: null,

@@ -34,6 +34,7 @@ export function GradientCanvas({ children, style }: { children?: ReactNode; styl
  */
 export function AuroraField({ intensity = 1 }: { intensity?: number }) {
   const t = useTheme();
+  if (t.solid) return null;
   const [a, b, c] = t.gradient.hero;
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
@@ -103,7 +104,7 @@ export function Glass({
       ]}
     >
       <View style={[shapeStyle, styles.clip]}>
-        <BlurView intensity={t.glass.intensity} tint={t.glass.mode} style={StyleSheet.absoluteFill} />
+        {t.solid ? null : <BlurView intensity={t.glass.intensity} tint={t.glass.mode} style={StyleSheet.absoluteFill} />}
         <View style={[StyleSheet.absoluteFill, { backgroundColor: t.glass.tint }]} />
         {/* Specular top edge: the single detail that sells it as glass. */}
         <LinearGradient

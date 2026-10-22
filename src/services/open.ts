@@ -1,4 +1,5 @@
 import { recordOpen } from "@/db/activity";
+import { beginReading } from "./readingSession";
 import { setDocumentStatus } from "@/db/documents";
 import { NativeUnavailableError, scanner } from "@/native/scanner";
 import { notifyLibraryChanged } from "@/state/store";
@@ -25,6 +26,7 @@ export async function openDocument(doc: DocumentRecord): Promise<OpenResult> {
     const status = await scanner().openDocument(doc.uri, doc.mimeType);
     switch (status) {
       case "opened":
+        await beginReading(doc);
         await recordOpen(doc.id);
         if (doc.status !== "available") await setDocumentStatus(doc.id, "available");
         notifyLibraryChanged();

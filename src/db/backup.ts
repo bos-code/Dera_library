@@ -1,9 +1,19 @@
 import { typeForExtension } from "@/lib/fileTypes";
-import { getDb } from "./database";
+import type { ReadingStatus } from "@/types/document";
+import { getDb, getMeta, setMeta } from "./database";
 import { ensureTag } from "./tags";
 
 const FORMAT = "dera-library-backup";
-const FORMAT_VERSION = 1;
+/** v2 adds reading status, reading sessions and the daily goal. v1 files still import. */
+const FORMAT_VERSION = 2;
+
+interface BackupSession {
+  documentName: string;
+  startedAt: number;
+  durationMs: number;
+  source: string;
+  pages: number | null;
+}
 
 interface BackupDocument {
   uri: string;
@@ -18,6 +28,8 @@ interface BackupDocument {
   lastOpenedAt: number | null;
   tags: string[];
   collections: string[];
+  readingStatus?: ReadingStatus | null;
+  sessions?: BackupSession[];
 }
 
 interface Backup {
@@ -27,6 +39,9 @@ interface Backup {
   collections: Array<{ id: string; name: string; parentId: string | null; createdAt: number }>;
   tags: Array<{ id: string; name: string }>;
   documents: BackupDocument[];
+  /** Sessions whose document was removed from the library. */
+  orphanSessions?: BackupSession[];
+  readingGoalMin?: number;
 }
 
 /** Serializes user organization (not files) for safekeeping. */
@@ -38,11 +53,14 @@ export async function exportLibrary(): Promise<{ json: string; documents: number
   const tags = await db.getAllAsync<Backup["tags"][number]>("SELECT id, name FROM tags");
   const rows = await db.getAllAsync<Omit<BackupDocument, "tags" | "collections" | "favorite"> & { id: number; favorite: number }>(
     `SELECT d.id, d.uri, d.path, d.name, d.extension, d.mime_type AS mimeType, d.size, d.modified_at AS modifiedAt,
-            d.folder, d.last_opened_at AS lastOpenedAt, (f.document_id IS NOT NULL) AS favorite
+            d.folder, d.last_opened_at AS lastOpenedAt, (f.document_id IS NOT NULL) AS favorite,
+            d.reading_status AS readingStatus
      FROM documents d LEFT JOIN favorites f ON f.document_id = d.id
      WHERE f.document_id IS NOT NULL
+        OR d.reading_status IS NOT NULL
         OR d.id IN (SELECT document_id FROM document_tags)
-        OR d.id IN (SELECT document_id FROM collection_documents)`,
+        OR d.id IN (SELECT document_id FROM collection_documents)
+        OR d.id IN (SELECT document_id FROM reading_sessions WHERE document_id IS NOT NULL)`,
   );
   const tagLinks = await db.getAllAsync<{ document_id: number; tag_id: string }>("SELECT document_id, tag_id FROM document_tags");
   const colLinks = await db.getAllAsync<{ document_id: number; collection_id: string }>(
@@ -63,6 +81,17 @@ export async function exportLibrary(): Promise<{ json: string; documents: number
     (l) => l.document_id,
     (l) => l.collection_id,
   );
+  const sessionRows = await db.getAllAsync<BackupSession & { documentId: number | null }>(
+    `SELECT document_id AS documentId, document_name AS documentName, started_at AS startedAt, duration_ms AS durationMs,
+            source, pages FROM reading_sessions ORDER BY started_at`,
+  );
+  const sessionsByDoc = new Map<number, BackupSession[]>();
+  const orphanSessions: BackupSession[] = [];
+  for (const { documentId, ...session } of sessionRows) {
+    if (documentId == null) orphanSessions.push(session);
+    else sessionsByDoc.set(documentId, [...(sessionsByDoc.get(documentId) ?? []), session]);
+  }
+  const goal = Number(await getMeta("reading_goal_min"));
   const backup: Backup = {
     format: FORMAT,
     version: FORMAT_VERSION,
@@ -74,7 +103,10 @@ export async function exportLibrary(): Promise<{ json: string; documents: number
       favorite: !!favorite,
       tags: tagsByDoc.get(id) ?? [],
       collections: colsByDoc.get(id) ?? [],
+      sessions: sessionsByDoc.get(id) ?? [],
     })),
+    orphanSessions,
+    ...(goal > 0 ? { readingGoalMin: goal } : {}),
   };
   return {
     json: JSON.stringify(backup, null, 1),
@@ -111,6 +143,23 @@ export async function importLibrary(json: string): Promise<ImportResult> {
 
   const result: ImportResult = { matched: 0, pending: 0, collections: 0, tags: tagIdMap.size };
   const now = Date.now();
+  /** Skips sessions already present, so importing the same backup twice doesn't double the history. */
+  const insertSession = async (documentId: number | null, s: BackupSession) => {
+    if (!(s.durationMs > 0)) return;
+    await db.runAsync(
+      `INSERT INTO reading_sessions(document_id,document_name,started_at,duration_ms,source,pages)
+       SELECT ?,?,?,?,?,? WHERE NOT EXISTS(SELECT 1 FROM reading_sessions WHERE started_at=? AND document_name=?)`,
+      documentId,
+      s.documentName,
+      s.startedAt,
+      s.durationMs,
+      ["estimate", "manual", "reader"].includes(s.source) ? s.source : "manual",
+      s.pages ?? null,
+      s.startedAt,
+      s.documentName,
+    );
+  };
+
   await db.withTransactionAsync(async () => {
     for (const c of data.collections ?? []) {
       const r = await db.runAsync(
@@ -162,6 +211,10 @@ export async function importLibrary(json: string): Promise<ImportResult> {
         if (tagId)
           await db.runAsync("INSERT OR IGNORE INTO document_tags(document_id,tag_id,added_at) VALUES(?,?,?)", id, tagId, now);
       }
+      if (d.readingStatus) {
+        await db.runAsync("UPDATE documents SET reading_status=? WHERE id=? AND reading_status IS NULL", d.readingStatus, id);
+      }
+      for (const session of d.sessions ?? []) await insertSession(id, session);
       for (const c of d.collections) {
         await db.runAsync(
           "INSERT OR IGNORE INTO collection_documents(collection_id,document_id,added_at) SELECT ?,?,? WHERE EXISTS(SELECT 1 FROM collections WHERE id=?)",
@@ -171,6 +224,10 @@ export async function importLibrary(json: string): Promise<ImportResult> {
           c,
         );
       }
+    }
+    for (const session of data.orphanSessions ?? []) await insertSession(null, session);
+    if (data.readingGoalMin && !(await getMeta("reading_goal_min"))) {
+      await setMeta("reading_goal_min", String(data.readingGoalMin));
     }
   });
   return result;

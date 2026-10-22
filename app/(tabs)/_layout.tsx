@@ -22,7 +22,7 @@ function GlassTabBar() {
   const t = useTheme();
   return (
     <View style={StyleSheet.absoluteFill}>
-      <BlurView intensity={t.glass.intensity} tint={t.glass.mode} style={StyleSheet.absoluteFill} />
+      {t.solid ? null : <BlurView intensity={t.glass.intensity} tint={t.glass.mode} style={StyleSheet.absoluteFill} />}
       <View style={[StyleSheet.absoluteFill, { backgroundColor: t.glass.tint }]} />
       <View style={[styles.hairline, { backgroundColor: t.glass.border }]} />
     </View>
@@ -47,6 +47,7 @@ export default function TabsLayout() {
       }}
     >
       <Tabs.Screen name="index" options={{ title: "Library", tabBarIcon: icon("bookshelf", "bookshelf") }} />
+      <Tabs.Screen name="reading" options={{ title: "Reading", tabBarIcon: icon("book-clock", "book-clock-outline") }} />
       <Tabs.Screen
         name="collections"
         options={{ title: "Collections", tabBarIcon: icon("folder-multiple", "folder-multiple-outline") }}

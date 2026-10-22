@@ -1,13 +1,14 @@
 import { typeForExtension } from "@/lib/fileTypes";
 import type { ScannedItem } from "@/native/scanner";
-import type { DocumentRecord, DocumentStatus, DocumentType, LibraryView, SortMode } from "@/types/document";
+import type { DocumentRecord, DocumentStatus, DocumentType, LibraryView, ReadingStatus, SortMode } from "@/types/document";
 import { getDb, getMeta } from "./database";
 import { planReconcile, type IndexedDoc, type ReconcileInput } from "./reconcile";
 
 const SELECT_DOCUMENT = `
   SELECT d.id, d.uri, d.path, d.name, d.extension, d.mime_type AS mimeType, d.size, d.modified_at AS modifiedAt,
          d.folder, d.type, d.source_id AS sourceId, d.status, d.missing_since AS missingSince,
-         d.last_opened_at AS lastOpenedAt, (f.document_id IS NOT NULL) AS isFavorite
+         d.last_opened_at AS lastOpenedAt, (f.document_id IS NOT NULL) AS isFavorite,
+         d.reading_status AS readingStatus
   FROM documents d LEFT JOIN favorites f ON f.document_id = d.id`;
 
 /** Documents missing for longer than this, with no user organization attached, are purged. */
@@ -22,6 +23,7 @@ export interface DocumentQuery {
   collectionId?: string;
   status?: DocumentStatus | "any";
   shelf?: SmartShelf | null;
+  readingStatus?: ReadingStatus;
   limit?: number;
 }
 
@@ -99,6 +101,10 @@ export async function searchDocuments(q: DocumentQuery = {}): Promise<DocumentRe
   if (q.collectionId) {
     where.push("d.id IN (SELECT document_id FROM collection_documents WHERE collection_id = ?)");
     args.push(q.collectionId);
+  }
+  if (q.readingStatus) {
+    where.push("d.reading_status = ?");
+    args.push(q.readingStatus);
   }
   if (q.shelf) {
     const cond = shelfCondition(q.shelf, Date.now());

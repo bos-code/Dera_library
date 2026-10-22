@@ -17,8 +17,11 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { AuroraField, GradientCanvas } from "@/components/glass";
 import { getDb, getMeta } from "@/db/database";
 import { refreshAccess } from "@/services/access";
+import { loadAppearance } from "@/services/appearance";
+import { finishReading } from "@/services/readingSession";
+import { ReadingPromptSheet } from "@/components/ReadingSheets";
 import { scanLibrary } from "@/services/scan";
-import { getState, setState, type ThemePreference } from "@/state/store";
+import { getState, setState } from "@/state/store";
 import { font, spacing, ThemeProvider, useTheme } from "@/theme";
 
 function ThemedStack() {
@@ -51,7 +54,9 @@ function ThemedStack() {
         <Stack.Screen name="tag/[id]" options={{ title: "Tag" }} />
         <Stack.Screen name="add-documents" options={{ title: "Add documents", presentation: "modal" }} />
         <Stack.Screen name="missing" options={{ title: "Missing documents" }} />
+        <Stack.Screen name="appearance" options={{ title: "Appearance" }} />
       </Stack>
+      <ReadingPromptSheet />
     </GradientCanvas>
   );
 }
@@ -72,25 +77,27 @@ export default function RootLayout() {
   useEffect(() => {
     (async () => {
       await getDb();
-      const [onboarded, theme, lastScan, layout] = await Promise.all([
+      const [onboarded, appearance, lastScan, layout] = await Promise.all([
         getMeta("onboarded"),
-        getMeta("theme"),
+        loadAppearance(),
         getMeta("last_scan_at"),
         getMeta("library_layout"),
       ]);
       setState((s) => ({
         onboarded: onboarded === "1",
-        themePreference: (theme as ThemePreference | null) ?? "system",
+        appearance,
         lastScanAt: lastScan ? Number(lastScan) : null,
         library: { ...s.library, layout: layout === "grid" ? "grid" : "list" },
       }));
       refreshAccess();
+      void finishReading();
       setReady(true);
     })().catch((e: unknown) => setError(e instanceof Error ? e.message : String(e)));
 
     // Access can change in system settings while the app is in the background.
     const sub = AppState.addEventListener("change", (s) => {
       if (s !== "active") return;
+      void finishReading();
       const before = getState().access?.allFilesAccess;
       const after = refreshAccess()?.allFilesAccess;
       // Returning from system settings with new access: find the newly visible documents right away.

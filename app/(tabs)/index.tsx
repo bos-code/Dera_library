@@ -3,7 +3,9 @@ import { useEffect, useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { DocumentBrowser } from "@/components/DocumentBrowser";
+import { GoalRing } from "@/components/ReadingCharts";
 import { Shelf } from "@/components/Shelf";
+import { getReadingSummary } from "@/db/reading";
 import { ScanBanner } from "@/components/ScanBanner";
 import { SearchBar } from "@/components/SearchBar";
 import { Button, Chip, EmptyState, Icon, IconButton, type IconName } from "@/components/ui";
@@ -74,6 +76,9 @@ export default function LibraryScreen() {
     async () =>
       home
         ? {
+            reading: await searchDocuments({ readingStatus: "reading", sort: "name-asc", limit: 12 }),
+            upNext: await searchDocuments({ readingStatus: "to-read", sort: "name-asc", limit: 12 }),
+            today: await getReadingSummary(),
             recent: await searchDocuments({ view: "recent", limit: 12 }),
             favorites: await searchDocuments({ view: "favorites", sort: "name-asc", limit: 12 }),
             counts: await getShelfCounts(),
@@ -125,7 +130,28 @@ export default function LibraryScreen() {
       </View>
       {home && shelves ? (
         <View style={{ gap: spacing.lg, paddingVertical: spacing.xs }}>
+          <Pressable
+            onPress={() => router.push("/reading")}
+            accessibilityRole="button"
+            accessibilityLabel={`Reading today: ${Math.round(shelves.today.todayMs / 60_000)} of ${Math.round(
+              shelves.today.goalMs / 60_000,
+            )} minutes. ${shelves.today.current} day streak`}
+            style={[styles.today, { backgroundColor: t.surfaceAlt }]}
+          >
+            <GoalRing progress={shelves.today.todayMs / shelves.today.goalMs} size={40} stroke={5} />
+            <View style={{ flex: 1 }}>
+              <Text style={[type.smallStrong, { color: t.text }]}>
+                {Math.round(shelves.today.todayMs / 60_000)} / {Math.round(shelves.today.goalMs / 60_000)} min today
+              </Text>
+              <Text style={[type.tiny, { color: t.textMuted }]}>
+                {shelves.today.current ? `${plural(shelves.today.current, "day")} streak` : "Read a little to start a streak"}
+              </Text>
+            </View>
+            <Icon name="chevron-right" size={20} color={t.textFaint} />
+          </Pressable>
+          <Shelf title="Currently reading" documents={shelves.reading} />
           <Shelf title="Continue reading" documents={shelves.recent} onSeeAll={() => setFilters({ view: "recent" })} />
+          <Shelf title="Up next" documents={shelves.upNext} />
           <Shelf title="Favorites" documents={shelves.favorites} onSeeAll={() => setFilters({ view: "favorites" })} />
           {SMART_SHELVES.some((k) => shelves.counts[k] > 0) ? (
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
@@ -253,5 +279,13 @@ const styles = StyleSheet.create({
     minHeight: 40,
   },
   sort: { flexDirection: "row", alignItems: "center", gap: 4 },
+  today: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+    marginHorizontal: spacing.lg,
+    padding: spacing.md,
+    ...corner.petal,
+  },
   activeShelf: { flexDirection: "row", alignItems: "center", gap: spacing.sm, paddingLeft: spacing.lg, paddingRight: spacing.xs },
 });

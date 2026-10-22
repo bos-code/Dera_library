@@ -141,11 +141,31 @@ INSERT OR REPLACE INTO app_meta(key,value) VALUES('fts','1');
 /** v4: lookup index for the duplicates shelf and backup matching (name + size). */
 const v4 = `CREATE INDEX IF NOT EXISTS idx_documents_name_size ON documents(name, size);`;
 
+/**
+ * v5: reading tracker. Sessions keep the document's name and survive the document being removed from the
+ * index (document_id is set to NULL), so the reading history and heatmap are never rewritten after the fact.
+ */
+const v5 = `
+CREATE TABLE reading_sessions(
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  document_id INTEGER REFERENCES documents(id) ON DELETE SET NULL,
+  document_name TEXT NOT NULL,
+  started_at INTEGER NOT NULL,
+  duration_ms INTEGER NOT NULL CHECK(duration_ms > 0),
+  source TEXT NOT NULL DEFAULT 'estimate' CHECK(source IN ('estimate','manual','reader')),
+  pages INTEGER
+);
+CREATE INDEX idx_reading_started ON reading_sessions(started_at);
+CREATE INDEX idx_reading_document ON reading_sessions(document_id);
+ALTER TABLE documents ADD COLUMN reading_status TEXT CHECK(reading_status IN ('to-read','reading','done'));
+`;
+
 export const migrations: Migration[] = [
   { version: 1, up: (db) => db.execAsync(v1) },
   { version: 2, rebuildsTables: true, up: (db) => db.execAsync(v2) },
   { version: 3, optional: true, up: (db) => db.execAsync(v3) },
   { version: 4, up: (db) => db.execAsync(v4) },
+  { version: 5, up: (db) => db.execAsync(v5) },
 ];
 
 export async function migrate(db: SQLiteDatabase): Promise<void> {

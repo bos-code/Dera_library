@@ -19,6 +19,7 @@ function DocumentRowImpl({ doc, selected, selecting, onPress, onLongPress }: Pro
   const t = useTheme();
   const unavailable = doc.status !== "available";
   const title = displayTitle(doc.name);
+  const compact = t.density === "compact";
   const meta = [formatSize(doc.size), formatRelativeDate(doc.modifiedAt)].join(" · ");
   return (
     <Pressable
@@ -32,7 +33,7 @@ function DocumentRowImpl({ doc, selected, selecting, onPress, onLongPress }: Pro
         unavailable ? `. ${doc.status === "missing" ? "Missing" : "No access"}` : ""
       }`}
       accessibilityHint={selecting ? "Toggles selection" : "Opens document details. Long press to select"}
-      style={[styles.row, selected && { backgroundColor: t.primarySoft }]}
+      style={[styles.row, compact && styles.compact, selected && { backgroundColor: t.primarySoft }]}
     >
       {selecting ? (
         <View
@@ -44,9 +45,9 @@ function DocumentRowImpl({ doc, selected, selecting, onPress, onLongPress }: Pro
           {selected ? <Icon name="check" size={16} color={t.onPrimary} /> : null}
         </View>
       ) : null}
-      <DocumentCover doc={doc} width={40} />
+      <DocumentCover doc={doc} width={compact ? 30 : 40} />
       <View style={styles.body}>
-        <Text numberOfLines={2} style={[styles.name, { color: unavailable ? t.textMuted : t.text }]}>
+        <Text numberOfLines={compact ? 1 : 2} style={[styles.name, { color: unavailable ? t.textMuted : t.text }]}>
           {title}
         </Text>
         <View style={styles.metaRow}>
@@ -60,7 +61,7 @@ function DocumentRowImpl({ doc, selected, selecting, onPress, onLongPress }: Pro
             {meta}
           </Text>
         </View>
-        {doc.folder ? (
+        {doc.folder && !compact ? (
           <Text numberOfLines={1} style={[styles.folder, { color: t.textFaint }]}>
             {doc.folder}
           </Text>
@@ -81,6 +82,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     minHeight: 76,
   },
+  compact: { minHeight: 56, paddingVertical: 6 },
   check: { width: 24, height: 24, borderRadius: 12, borderWidth: 2, alignItems: "center", justifyContent: "center" },
   body: { flex: 1, gap: 2 },
   name: { ...type.bodyStrong, lineHeight: 21 },
