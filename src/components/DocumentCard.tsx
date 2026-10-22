@@ -1,7 +1,7 @@
 import { memo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { formatSize } from "@/lib/format";
-import { displayTitle } from "@/lib/title";
+import { docTitle } from "@/lib/title";
 import { spacing, type, useTheme } from "@/theme";
 import type { DocumentRecord } from "@/types/document";
 import { DocumentCover } from "./DocumentCover";
@@ -23,7 +23,7 @@ interface Props {
 /** Grid/shelf tile: cover on top, title underneath. */
 function DocumentCardImpl({ doc, width, selected, selecting, onPress, onLongPress, onInfo, compact }: Props) {
   const t = useTheme();
-  const title = displayTitle(doc.name);
+  const title = docTitle(doc);
   return (
     <Pressable
       onPress={() => onPress(doc)}

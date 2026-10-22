@@ -1,3 +1,4 @@
+import { clearInbox } from "./inbox";
 import { getDb, newId } from "./database";
 
 export interface Collection {
@@ -119,6 +120,7 @@ export async function deleteCollection(id: string): Promise<void> {
 }
 
 export async function addDocumentsToCollection(collectionId: string, documentIds: number[]): Promise<void> {
+  await clearInbox(documentIds);
   const db = await getDb();
   const now = Date.now();
   await db.withTransactionAsync(async () => {
@@ -154,6 +156,7 @@ export async function getDocumentCollectionIds(documentId: number): Promise<stri
 
 /** Sets exactly which collections one document belongs to. */
 export async function setDocumentCollections(documentId: number, collectionIds: string[]): Promise<void> {
+  if (collectionIds.length) await clearInbox([documentId]);
   const db = await getDb();
   const now = Date.now();
   await db.withTransactionAsync(async () => {

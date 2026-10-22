@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { addSession } from "@/db/reading";
 import { formatDuration, startOfDay } from "@/lib/readingStats";
-import { displayTitle } from "@/lib/title";
+import { docTitle } from "@/lib/title";
 import { discardReading, saveReading } from "@/services/readingSession";
 import { notifyLibraryChanged, useAppState } from "@/state/store";
 import { corner, spacing, type, useTheme } from "@/theme";
@@ -102,7 +102,7 @@ export function LogReadingSheet({
     // Place the session so it ends now (today) or at the same time yesterday.
     const end = day === "today" ? Date.now() : Date.now() - 86_400_000;
     const startedAt = Math.max(startOfDay(end), end - durationMs);
-    await addSession({ documentId: picked.id, documentName: displayTitle(picked.name), startedAt, durationMs, source: "manual" });
+    await addSession({ documentId: picked.id, documentName: docTitle(picked), startedAt, durationMs, source: "manual" });
     notifyLibraryChanged();
     onClose();
   };
@@ -122,7 +122,7 @@ export function LogReadingSheet({
       <ScrollView contentContainerStyle={{ paddingHorizontal: spacing.lg, gap: spacing.lg }}>
         {document ? (
           <Text numberOfLines={2} style={[type.bodyStrong, { color: t.text }]}>
-            {displayTitle(document.name)}
+            {docTitle(document)}
           </Text>
         ) : candidates.length ? (
           <View style={{ gap: spacing.sm }}>
@@ -139,7 +139,7 @@ export function LogReadingSheet({
                 >
                   <Icon name={on ? "radiobox-marked" : "radiobox-blank"} color={on ? t.primary : t.textFaint} />
                   <Text numberOfLines={1} style={[type.small, { color: t.text, flex: 1 }]}>
-                    {displayTitle(d.name)}
+                    {docTitle(d)}
                   </Text>
                 </Pressable>
               );

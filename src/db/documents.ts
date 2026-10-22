@@ -8,7 +8,8 @@ const SELECT_DOCUMENT = `
   SELECT d.id, d.uri, d.path, d.name, d.extension, d.mime_type AS mimeType, d.size, d.modified_at AS modifiedAt,
          d.folder, d.type, d.source_id AS sourceId, d.status, d.missing_since AS missingSince,
          d.last_opened_at AS lastOpenedAt, (f.document_id IS NOT NULL) AS isFavorite,
-         d.reading_status AS readingStatus, d.page_count AS pageCount, d.word_count AS wordCount
+         d.reading_status AS readingStatus, d.page_count AS pageCount, d.word_count AS wordCount,
+         d.custom_title AS customTitle, d.note, d.inbox
   FROM documents d LEFT JOIN favorites f ON f.document_id = d.id`;
 
 /** Documents missing for longer than this, with no user organization attached, are purged. */
@@ -24,6 +25,10 @@ export interface DocumentQuery {
   status?: DocumentStatus | "any";
   shelf?: SmartShelf | null;
   readingStatus?: ReadingStatus;
+  /** Only documents waiting in the Inbox. */
+  inbox?: boolean;
+  /** Only documents first seen after the initial scan, newest first via sort "added-desc". */
+  recentlyAdded?: boolean;
   /** Also match text inside documents (default true when the index is on). */
   content?: boolean;
   limit?: number;
@@ -152,6 +157,9 @@ export async function searchDocuments(q: DocumentQuery = {}): Promise<DocumentRe
     where.push("d.id IN (SELECT document_id FROM collection_documents WHERE collection_id = ?)");
     args.push(q.collectionId);
   }
+  if (q.inbox) where.push("d.inbox = 1");
+  // The first scan stamps everything at once; "recently added" means found after that.
+  if (q.recentlyAdded) where.push("d.first_seen_at > (SELECT MIN(first_seen_at) FROM documents) + 600000");
   if (q.readingStatus) {
     where.push("d.reading_status = ?");
     args.push(q.readingStatus);
@@ -174,8 +182,13 @@ export async function searchDocuments(q: DocumentQuery = {}): Promise<DocumentRe
     } else {
       const likes = words.map((w) => `%${w.replace(/[\\%_]/g, (c) => `\\${c}`)}%`);
       nameMatch = {
-        sql: likes.map(() => "(d.name LIKE ? ESCAPE '\\' OR d.folder LIKE ? ESCAPE '\\')").join(" AND "),
-        args: likes.flatMap((l) => [l, l]),
+        sql: likes
+          .map(
+            () =>
+              "(d.name LIKE ? ESCAPE '\\' OR d.folder LIKE ? ESCAPE '\\' OR d.custom_title LIKE ? ESCAPE '\\' OR d.note LIKE ? ESCAPE '\\')",
+          )
+          .join(" AND "),
+        args: likes.flatMap((l) => [l, l, l, l]),
       };
     }
   }
@@ -259,14 +272,21 @@ async function loadIndex(): Promise<IndexedDoc[]> {
 }
 
 /** Reconciles one scan scope into the index inside a single transaction. */
-export async function applyScan(input: ReconcileInput) {
+/** Bigger batches (e.g. a folder just granted) skip the Inbox instead of flooding it. */
+const INBOX_MAX_BATCH = 200;
+
+/**
+ * @param options.inbox put newly found documents in the Inbox (false for the first scan and for folders the
+ *   user just added, where everything is "new").
+ */
+export async function applyScan(input: ReconcileInput, options: { inbox?: boolean } = {}) {
   const db = await getDb();
   const plan = planReconcile(await loadIndex(), input);
   const now = Date.now();
   await db.withTransactionAsync(async () => {
     const insert = await db.prepareAsync(
-      `INSERT INTO documents(uri,path,name,extension,mime_type,size,modified_at,folder,type,source_id,status,first_seen_at,last_seen_at)
-       VALUES($uri,$path,$name,$ext,$mime,$size,$mod,$folder,$type,$source,'available',$now,$now)
+      `INSERT INTO documents(uri,path,name,extension,mime_type,size,modified_at,folder,type,source_id,status,first_seen_at,last_seen_at,inbox)
+       VALUES($uri,$path,$name,$ext,$mime,$size,$mod,$folder,$type,$source,'available',$now,$now,$inbox)
        ON CONFLICT(uri) DO UPDATE SET status='available', missing_since=NULL, last_seen_at=$now, source_id=$source`,
     );
     const update = await db.prepareAsync(
@@ -288,7 +308,8 @@ export async function applyScan(input: ReconcileInput) {
     });
     try {
       for (const { id, item } of plan.updates) await update.executeAsync({ ...params(item), $id: id });
-      for (const item of plan.inserts) await insert.executeAsync(params(item));
+      const inbox = options.inbox && plan.inserts.length <= INBOX_MAX_BATCH ? 1 : 0;
+      for (const item of plan.inserts) await insert.executeAsync({ ...params(item), $inbox: inbox });
     } finally {
       await insert.finalizeAsync();
       await update.finalizeAsync();
@@ -333,4 +354,15 @@ export async function purgeStaleMissing(now = Date.now()): Promise<number> {
     now - PURGE_AFTER_MS,
   );
   return res.changes;
+}
+
+/** The user's own title and note. Only the library changes; the file is never renamed. */
+export async function setPersonal(id: number, fields: { customTitle?: string | null; note?: string | null }): Promise<void> {
+  const db = await getDb();
+  if (fields.customTitle !== undefined) {
+    await db.runAsync("UPDATE documents SET custom_title=? WHERE id=?", fields.customTitle?.trim() || null, id);
+  }
+  if (fields.note !== undefined) {
+    await db.runAsync("UPDATE documents SET note=? WHERE id=?", fields.note?.trim() || null, id);
+  }
 }

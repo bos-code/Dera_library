@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { formatDuration } from "@/lib/readingStats";
-import { displayTitle } from "@/lib/title";
+import { docTitle } from "@/lib/title";
 import { resumeFocus, startFocus, stopFocus } from "@/services/focus";
 import { useAppState } from "@/state/store";
 import { corner, spacing, type, useTheme } from "@/theme";
@@ -137,7 +137,7 @@ export function FocusSheet({
         </Text>
         {document ? (
           <Text numberOfLines={2} style={[type.bodyStrong, { color: t.text }]}>
-            {displayTitle(document.name)}
+            {docTitle(document)}
           </Text>
         ) : candidates.length ? (
           <View style={{ gap: spacing.sm }}>
@@ -153,7 +153,7 @@ export function FocusSheet({
                 >
                   <Icon name={on ? "radiobox-marked" : "radiobox-blank"} color={on ? t.primary : t.textFaint} />
                   <Text numberOfLines={1} style={[type.small, { color: t.text, flex: 1 }]}>
-                    {displayTitle(d.name)}
+                    {docTitle(d)}
                   </Text>
                 </Pressable>
               );

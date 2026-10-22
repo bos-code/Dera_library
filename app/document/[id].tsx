@@ -6,6 +6,8 @@ import { CollectionPickerSheet } from "@/components/CollectionPickerSheet";
 import { TagPickerSheet } from "@/components/TagPickerSheet";
 import { DocumentCover } from "@/components/DocumentCover";
 import { FocusSheet } from "@/components/Focus";
+import { NoteSheet } from "@/components/NoteSheet";
+import { PromptSheet } from "@/components/PromptSheet";
 import { LogReadingSheet } from "@/components/ReadingSheets";
 import { Button, Card, Chip, EmptyState, Icon, SectionTitle, type IconName } from "@/components/ui";
 import { getDocumentReading, setReadingStatus } from "@/db/reading";
@@ -14,12 +16,12 @@ import { getContentStatus } from "@/db/contentIndex";
 import type { ReadingStatus } from "@/types/document";
 import { getOpenCount, setFavorite } from "@/db/activity";
 import { getAllCollections, getDocumentCollectionIds, setDocumentCollections } from "@/db/collections";
-import { forgetDocuments, getDocument } from "@/db/documents";
+import { forgetDocuments, getDocument, setPersonal } from "@/db/documents";
 import { getDocumentTags, tagDocuments, untagDocument } from "@/db/tags";
 import { TYPE_LABEL } from "@/lib/fileTypes";
 import { formatDateTime, formatRelativeDate, formatSize, plural } from "@/lib/format";
 import { haptic } from "@/lib/haptics";
-import { displayTitle } from "@/lib/title";
+import { docTitle } from "@/lib/title";
 import { useQuery } from "@/lib/useQuery";
 import { openDocument } from "@/services/open";
 import { showUndo } from "@/services/toast";
@@ -41,6 +43,7 @@ export default function DocumentScreen() {
   const [opening, setOpening] = useState(false);
   const [logging, setLogging] = useState(false);
   const [focusing, setFocusing] = useState(false);
+  const [editing, setEditing] = useState<"title" | "note" | null>(null);
   const starScale = useSharedValue(1);
   const starStyle = useAnimatedStyle(() => ({ transform: [{ scale: starScale.value }] }));
 
@@ -176,8 +179,13 @@ export default function DocumentScreen() {
         <View style={styles.hero}>
           <DocumentCover doc={doc} width={132} />
           <Text selectable accessibilityRole="header" style={[styles.name, { color: t.text }]}>
-            {displayTitle(doc.name)}
+            {docTitle(doc)}
           </Text>
+          {doc.customTitle ? (
+            <Text selectable numberOfLines={2} style={[type.tiny, { color: t.textFaint, textAlign: "center" }]}>
+              File: {doc.name}
+            </Text>
+          ) : null}
           <Text style={{ color: t.textMuted, fontSize: font.small }}>
             {[
               formatSize(doc.size),
@@ -316,7 +324,20 @@ export default function DocumentScreen() {
           )}
         </View>
 
-        <SectionTitle>Details</SectionTitle>
+        <SectionTitle action={<Button label={doc.note ? "Edit" : "Add"} variant="ghost" onPress={() => setEditing("note")} />}>
+          Notes
+        </SectionTitle>
+        <Pressable onPress={() => setEditing("note")} accessibilityRole="button" style={{ paddingHorizontal: spacing.lg }}>
+          <Text selectable={!!doc.note} style={[type.small, { color: doc.note ? t.text : t.textFaint }]}>
+            {doc.note || "Add your own notes. They're private to this phone and searchable."}
+          </Text>
+        </Pressable>
+
+        <SectionTitle
+          action={<Button label={doc.customTitle ? "Rename" : "Set title"} variant="ghost" onPress={() => setEditing("title")} />}
+        >
+          Details
+        </SectionTitle>
         <Card style={{ marginHorizontal: spacing.lg }}>
           {details.map(([label, value], i) => (
             <View
@@ -340,6 +361,30 @@ export default function DocumentScreen() {
 
       <LogReadingSheet visible={logging} onClose={() => setLogging(false)} document={doc} />
       <FocusSheet visible={focusing} onClose={() => setFocusing(false)} document={doc} />
+      <NoteSheet
+        visible={editing === "note"}
+        initial={doc.note ?? ""}
+        onClose={() => setEditing(null)}
+        onSave={async (note) => {
+          await setPersonal(doc.id, { note });
+          setEditing(null);
+          notifyLibraryChanged();
+        }}
+      />
+      <PromptSheet
+        visible={editing === "title"}
+        title="Title in your library"
+        placeholder={docTitle({ name: doc.name })}
+        initialValue={doc.customTitle ?? ""}
+        confirmLabel="Save"
+        allowEmpty
+        onClose={() => setEditing(null)}
+        onSubmit={async (title) => {
+          await setPersonal(doc.id, { customTitle: title });
+          setEditing(null);
+          notifyLibraryChanged();
+        }}
+      />
       <CollectionPickerSheet
         visible={sheet === "collections"}
         title="Collections"

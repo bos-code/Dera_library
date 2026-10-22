@@ -217,6 +217,13 @@ export default function SettingsScreen() {
           right={<Icon name="chevron-right" color={t.textFaint} />}
         />
         <ListRow
+          icon="harddisk"
+          title="Storage insights"
+          subtitle="Space by type and folder, largest files, duplicates"
+          onPress={() => router.push("/storage")}
+          right={<Icon name="chevron-right" color={t.textFaint} />}
+        />
+        <ListRow
           icon="image-refresh-outline"
           title="Refresh covers"
           subtitle="Re-render document covers the next time they're shown"

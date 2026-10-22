@@ -77,6 +77,8 @@ export interface AppState {
     view: LibraryView;
     shelf: SmartShelf | null;
     layout: "list" | "grid";
+    /** Collapse "Report v1/v2/final" into one row (list layout). */
+    stackVersions: boolean;
   };
 }
 
@@ -94,7 +96,7 @@ let state: AppState = {
   lastSummary: null,
   lastScanAt: null,
   scanError: null,
-  library: { text: "", type: "all", sort: "modified-desc", view: "all", shelf: null, layout: "list" },
+  library: { text: "", type: "all", sort: "modified-desc", view: "all", shelf: null, layout: "list", stackVersions: true },
 };
 
 const listeners = new Set<() => void>();

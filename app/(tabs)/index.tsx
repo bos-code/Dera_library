@@ -1,14 +1,18 @@
 import { router } from "expo-router";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { DocumentBrowser } from "@/components/DocumentBrowser";
 import { FocusCard } from "@/components/Focus";
 import { GoalRing } from "@/components/ReadingCharts";
 import { Shelf } from "@/components/Shelf";
+import { getInboxCount } from "@/db/inbox";
 import { getReadingSummary } from "@/db/reading";
+import { saveSearch } from "@/db/savedSearches";
+import { showToast } from "@/services/toast";
 import { ScanBanner } from "@/components/ScanBanner";
 import { SearchBar } from "@/components/SearchBar";
+import { PromptSheet } from "@/components/PromptSheet";
 import { Sheet } from "@/components/Sheet";
 import { Button, Chip, EmptyState, Icon, IconButton, ListRow, type IconName } from "@/components/ui";
 import { setMeta } from "@/db/database";
@@ -16,8 +20,9 @@ import { getLibraryStats, getShelfCounts, searchDocuments, SMART_SHELVES, type S
 import { TYPE_FILTERS } from "@/lib/fileTypes";
 import { plural } from "@/lib/format";
 import { useDebounced, useQuery } from "@/lib/useQuery";
+import { stackVersions } from "@/lib/versions";
 import { scanLibrary } from "@/services/scan";
-import { getState, setState, useAppState } from "@/state/store";
+import { getState, notifyLibraryChanged, setState, useAppState } from "@/state/store";
 import { corner, spacing, type, useTheme } from "@/theme";
 import type { LibraryView, SortMode } from "@/types/document";
 
@@ -82,6 +87,8 @@ export default function LibraryScreen() {
             reading: await searchDocuments({ readingStatus: "reading", sort: "name-asc", limit: 12 }),
             upNext: await searchDocuments({ readingStatus: "to-read", sort: "name-asc", limit: 12 }),
             today: await getReadingSummary(),
+            inboxCount: await getInboxCount(),
+            added: await searchDocuments({ recentlyAdded: true, sort: "added-desc", limit: 12 }),
             recent: await searchDocuments({ view: "recent", limit: 12 }),
             favorites: await searchDocuments({ view: "favorites", sort: "name-asc", limit: 12 }),
             counts: await getShelfCounts(),
@@ -97,6 +104,22 @@ export default function LibraryScreen() {
 
   const sort = SORTS.find((s) => s.value === filters.sort) ?? SORTS[0];
   const [sorting, setSorting] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [expandedStacks, setExpandedStacks] = useState<Set<string>>(new Set());
+  const listed = useMemo(
+    () => (docs && filters.stackVersions && filters.layout === "list" ? stackVersions(docs, expandedStacks) : (docs ?? [])),
+    [docs, filters.stackVersions, filters.layout, expandedStacks],
+  );
+  const toggleStack = useCallback(
+    (key: string) =>
+      setExpandedStacks((prev) => {
+        const next = new Set(prev);
+        if (next.has(key)) next.delete(key);
+        else next.add(key);
+        return next;
+      }),
+    [],
+  );
   const filtered = !home;
   const noAccess = access && !access.allFilesAccess;
 
@@ -121,6 +144,21 @@ export default function LibraryScreen() {
       </View>
       {home && shelves ? (
         <View style={{ gap: spacing.lg, paddingVertical: spacing.xs }}>
+          {shelves.inboxCount ? (
+            <Pressable
+              onPress={() => router.push("/inbox")}
+              accessibilityRole="button"
+              accessibilityLabel={`Inbox: ${plural(shelves.inboxCount, "new document")} to file`}
+              style={[styles.today, { backgroundColor: t.primarySoft }]}
+            >
+              <Icon name="inbox-arrow-down" color={t.primary} />
+              <View style={{ flex: 1 }}>
+                <Text style={[type.smallStrong, { color: t.text }]}>{plural(shelves.inboxCount, "new document")} to file</Text>
+                <Text style={[type.tiny, { color: t.textMuted }]}>Found since your last scan</Text>
+              </View>
+              <Icon name="chevron-right" size={20} color={t.textFaint} />
+            </Pressable>
+          ) : null}
           <Pressable
             onPress={() => router.push("/reading")}
             accessibilityRole="button"
@@ -143,6 +181,7 @@ export default function LibraryScreen() {
           <Shelf title="Currently reading" documents={shelves.reading} />
           <Shelf title="Continue reading" documents={shelves.recent} onSeeAll={() => setFilters({ view: "recent" })} />
           <Shelf title="Up next" documents={shelves.upNext} />
+          <Shelf title="Recently added" documents={shelves.added} onSeeAll={() => setFilters({ sort: "added-desc" })} />
           <Shelf title="Favorites" documents={shelves.favorites} onSeeAll={() => setFilters({ view: "favorites" })} />
           {SMART_SHELVES.some((k) => shelves.counts[k] > 0) ? (
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
@@ -205,6 +244,14 @@ export default function LibraryScreen() {
             <Text style={[type.smallStrong, { color: t.primary }]}>{sort.label}</Text>
           </Pressable>
         ) : null}
+        {!home ? (
+          <IconButton
+            icon="bookmark-plus-outline"
+            label="Save as smart collection"
+            onPress={() => setSaving(true)}
+            color={t.primary}
+          />
+        ) : null}
         <IconButton
           icon={filters.layout === "grid" ? "view-list-outline" : "view-grid-outline"}
           label={filters.layout === "grid" ? "Show as list" : "Show as covers"}
@@ -264,14 +311,51 @@ export default function LibraryScreen() {
         </View>
       </View>
       <DocumentBrowser
-        documents={docs ?? []}
+        documents={listed}
+        onToggleStack={toggleStack}
         header={header}
         empty={empty}
         layout={filters.layout}
         refreshing={false}
         onRefresh={() => void scanLibrary()}
       />
+      <PromptSheet
+        visible={saving}
+        title="Save as smart collection"
+        placeholder={filters.text ? `“${filters.text}”` : "e.g. Physics PDFs"}
+        initialValue={filters.text}
+        confirmLabel="Save"
+        onClose={() => setSaving(false)}
+        onSubmit={async (name) => {
+          const id = await saveSearch(name, {
+            text: filters.text || undefined,
+            type: filters.type,
+            view: filters.view,
+            shelf: filters.shelf,
+            sort: filters.sort,
+          });
+          setSaving(false);
+          notifyLibraryChanged();
+          showToast(`Saved “${name}” to Collections`, {
+            label: "Open",
+            run: () => router.push({ pathname: "/saved/[id]", params: { id } }),
+          });
+        }}
+      />
       <Sheet visible={sorting} onClose={() => setSorting(false)} title="Sort by">
+        <ListRow
+          icon="layers-outline"
+          title="Group versions"
+          subtitle="Show “Report v1, v2, final” as one row"
+          onPress={() => setFilters({ stackVersions: !filters.stackVersions })}
+          right={
+            <Icon
+              name={filters.stackVersions ? "toggle-switch" : "toggle-switch-off-outline"}
+              size={32}
+              color={filters.stackVersions ? t.primary : t.textFaint}
+            />
+          }
+        />
         {SORTS.map((o) => (
           <ListRow
             key={o.value}

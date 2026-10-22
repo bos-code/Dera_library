@@ -30,6 +30,8 @@ interface BackupDocument {
   collections: string[];
   readingStatus?: ReadingStatus | null;
   sessions?: BackupSession[];
+  customTitle?: string | null;
+  note?: string | null;
 }
 
 interface Backup {
@@ -42,6 +44,7 @@ interface Backup {
   /** Sessions whose document was removed from the library. */
   orphanSessions?: BackupSession[];
   readingGoalMin?: number;
+  savedSearches?: Array<{ id: string; name: string; query: string; createdAt: number }>;
 }
 
 /** Serializes user organization (not files) for safekeeping. */
@@ -54,10 +57,12 @@ export async function exportLibrary(): Promise<{ json: string; documents: number
   const rows = await db.getAllAsync<Omit<BackupDocument, "tags" | "collections" | "favorite"> & { id: number; favorite: number }>(
     `SELECT d.id, d.uri, d.path, d.name, d.extension, d.mime_type AS mimeType, d.size, d.modified_at AS modifiedAt,
             d.folder, d.last_opened_at AS lastOpenedAt, (f.document_id IS NOT NULL) AS favorite,
-            d.reading_status AS readingStatus
+            d.reading_status AS readingStatus, d.custom_title AS customTitle, d.note
      FROM documents d LEFT JOIN favorites f ON f.document_id = d.id
      WHERE f.document_id IS NOT NULL
         OR d.reading_status IS NOT NULL
+        OR d.custom_title IS NOT NULL
+        OR d.note IS NOT NULL
         OR d.id IN (SELECT document_id FROM document_tags)
         OR d.id IN (SELECT document_id FROM collection_documents)
         OR d.id IN (SELECT document_id FROM reading_sessions WHERE document_id IS NOT NULL)`,
@@ -92,6 +97,9 @@ export async function exportLibrary(): Promise<{ json: string; documents: number
     else sessionsByDoc.set(documentId, [...(sessionsByDoc.get(documentId) ?? []), session]);
   }
   const goal = Number(await getMeta("reading_goal_min"));
+  const savedSearches = await db.getAllAsync<{ id: string; name: string; query: string; createdAt: number }>(
+    "SELECT id, name, query, created_at AS createdAt FROM saved_searches",
+  );
   const backup: Backup = {
     format: FORMAT,
     version: FORMAT_VERSION,
@@ -106,6 +114,7 @@ export async function exportLibrary(): Promise<{ json: string; documents: number
       sessions: sessionsByDoc.get(id) ?? [],
     })),
     orphanSessions,
+    savedSearches,
     ...(goal > 0 ? { readingGoalMin: goal } : {}),
   };
   return {
@@ -211,6 +220,14 @@ export async function importLibrary(json: string): Promise<ImportResult> {
         if (tagId)
           await db.runAsync("INSERT OR IGNORE INTO document_tags(document_id,tag_id,added_at) VALUES(?,?,?)", id, tagId, now);
       }
+      if (d.customTitle || d.note) {
+        await db.runAsync(
+          "UPDATE documents SET custom_title=coalesce(custom_title, ?), note=coalesce(note, ?) WHERE id=?",
+          d.customTitle ?? null,
+          d.note ?? null,
+          id,
+        );
+      }
       if (d.readingStatus) {
         await db.runAsync("UPDATE documents SET reading_status=? WHERE id=? AND reading_status IS NULL", d.readingStatus, id);
       }
@@ -226,6 +243,15 @@ export async function importLibrary(json: string): Promise<ImportResult> {
       }
     }
     for (const session of data.orphanSessions ?? []) await insertSession(null, session);
+    for (const ss of data.savedSearches ?? []) {
+      await db.runAsync(
+        "INSERT OR IGNORE INTO saved_searches(id,name,query,created_at) VALUES(?,?,?,?)",
+        ss.id,
+        ss.name,
+        ss.query,
+        ss.createdAt ?? Date.now(),
+      );
+    }
     if (data.readingGoalMin && !(await getMeta("reading_goal_min"))) {
       await setMeta("reading_goal_min", String(data.readingGoalMin));
     }

@@ -23,6 +23,11 @@ export interface DocumentRecord {
   isFavorite: number;
   readingStatus: ReadingStatus | null;
   pageCount: number | null;
+  /** The user's own title; the file itself is never renamed. */
+  customTitle: string | null;
+  note: string | null;
+  /** 1 while a newly found document waits in the Inbox to be filed. */
+  inbox: number;
   wordCount: number | null;
   /** Excerpt around a text match, with matches wrapped in \u0001 … \u0002. Only set by text searches. */
   snippet?: string;

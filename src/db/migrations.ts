@@ -186,6 +186,33 @@ END;
 INSERT OR REPLACE INTO app_meta(key,value) VALUES('content_fts','1');
 `;
 
+/**
+ * v8: organization.
+ * - inbox: newly discovered documents waiting to be filed
+ * - custom_title / note: the user's own title and notes (the file is never renamed)
+ * - saved_searches: filters saved as self-updating smart collections
+ */
+const v8 = `
+ALTER TABLE documents ADD COLUMN inbox INTEGER NOT NULL DEFAULT 0;
+CREATE INDEX idx_documents_inbox ON documents(inbox) WHERE inbox = 1;
+ALTER TABLE documents ADD COLUMN custom_title TEXT;
+ALTER TABLE documents ADD COLUMN note TEXT;
+CREATE TABLE saved_searches(
+  id TEXT PRIMARY KEY NOT NULL,
+  name TEXT NOT NULL,
+  query TEXT NOT NULL,
+  created_at INTEGER NOT NULL,
+  sort_order INTEGER NOT NULL DEFAULT 0
+);
+`;
+
+/** v9 (optional, needs the v3 FTS table): custom titles and notes become searchable via its spare body column. */
+const v9 = `
+CREATE TRIGGER documents_fts_personal AFTER UPDATE OF custom_title, note ON documents BEGIN
+  UPDATE documents_fts SET body = trim(coalesce(new.custom_title, '') || ' ' || coalesce(new.note, '')) WHERE rowid = new.id;
+END;
+`;
+
 export const migrations: Migration[] = [
   { version: 1, up: (db) => db.execAsync(v1) },
   { version: 2, rebuildsTables: true, up: (db) => db.execAsync(v2) },
@@ -194,6 +221,8 @@ export const migrations: Migration[] = [
   { version: 5, up: (db) => db.execAsync(v5) },
   { version: 6, up: (db) => db.execAsync(v6) },
   { version: 7, optional: true, up: (db) => db.execAsync(v7) },
+  { version: 8, up: (db) => db.execAsync(v8) },
+  { version: 9, optional: true, up: (db) => db.execAsync(v9) },
 ];
 
 export async function migrate(db: SQLiteDatabase): Promise<void> {

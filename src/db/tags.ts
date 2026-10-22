@@ -1,3 +1,4 @@
+import { clearInbox } from "./inbox";
 import { getDb, newId } from "./database";
 
 export interface Tag {
@@ -42,6 +43,7 @@ export async function ensureTag(name: string): Promise<string> {
 }
 
 export async function tagDocuments(tagId: string, documentIds: number[]): Promise<void> {
+  await clearInbox(documentIds);
   const db = await getDb();
   const now = Date.now();
   await db.withTransactionAsync(async () => {

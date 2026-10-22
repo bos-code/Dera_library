@@ -1,7 +1,7 @@
 import { getMeta, setMeta } from "@/db/database";
 import { addSession } from "@/db/reading";
 import { haptic } from "@/lib/haptics";
-import { displayTitle } from "@/lib/title";
+import { docTitle } from "@/lib/title";
 import { getState, notifyLibraryChanged, setState } from "@/state/store";
 import type { DocumentRecord } from "@/types/document";
 
@@ -28,7 +28,7 @@ interface Pending {
 let pending: Pending | null = null;
 
 export async function beginReading(doc: DocumentRecord): Promise<void> {
-  pending = { documentId: doc.id, documentName: displayTitle(doc.name), startedAt: Date.now() };
+  pending = { documentId: doc.id, documentName: docTitle(doc), startedAt: Date.now() };
   // Persisted too: Android may kill Dera while the other app is in front.
   await setMeta(KEY, JSON.stringify(pending));
 }

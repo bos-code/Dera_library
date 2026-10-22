@@ -3,7 +3,7 @@ import { getDocument } from "@/db/documents";
 import { getMeta, setMeta } from "@/db/database";
 import { addSession } from "@/db/reading";
 import { haptic } from "@/lib/haptics";
-import { displayTitle } from "@/lib/title";
+import { docTitle } from "@/lib/title";
 import { isScannerAvailable, scanner } from "@/native/scanner";
 import { getState, notifyLibraryChanged, setState, type FocusSession } from "@/state/store";
 import type { DocumentRecord } from "@/types/document";
@@ -61,7 +61,7 @@ function hideNotification() {
 
 export async function startFocus(doc: DocumentRecord, plannedMs: number | null): Promise<OpenResult> {
   await allowNotifications();
-  const focus: FocusSession = { documentId: doc.id, documentName: displayTitle(doc.name), startedAt: Date.now(), plannedMs };
+  const focus: FocusSession = { documentId: doc.id, documentName: docTitle(doc), startedAt: Date.now(), plannedMs };
   setState({ focus });
   await setMeta(KEY, JSON.stringify(focus));
   showNotification(focus);

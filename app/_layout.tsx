@@ -59,6 +59,9 @@ function ThemedStack() {
         <Stack.Screen name="missing" options={{ title: "Missing documents" }} />
         <Stack.Screen name="appearance" options={{ title: "Appearance" }} />
         <Stack.Screen name="recap" options={{ title: "Recap" }} />
+        <Stack.Screen name="inbox" options={{ title: "Inbox" }} />
+        <Stack.Screen name="saved/[id]" options={{ title: "" }} />
+        <Stack.Screen name="storage" options={{ title: "Storage" }} />
       </Stack>
       <ReadingPromptSheet />
       <ToastBar />

@@ -13,6 +13,7 @@ export function PromptSheet({
   confirmLabel = "Save",
   onSubmit,
   onClose,
+  allowEmpty,
 }: {
   visible: boolean;
   title: string;
@@ -21,6 +22,8 @@ export function PromptSheet({
   confirmLabel?: string;
   onSubmit: (value: string) => void | Promise<void>;
   onClose: () => void;
+  /** Accept an empty value (e.g. to clear a custom title). */
+  allowEmpty?: boolean;
 }) {
   const t = useTheme();
   const [value, setValue] = useState(initialValue);
@@ -28,7 +31,7 @@ export function PromptSheet({
     if (visible) setValue(initialValue);
   }, [visible, initialValue]);
   const submit = async () => {
-    if (!value.trim()) return;
+    if (!value.trim() && !allowEmpty) return;
     await onSubmit(value.trim());
   };
   return (
@@ -39,7 +42,13 @@ export function PromptSheet({
       footer={
         <>
           <Button label="Cancel" onPress={onClose} style={{ flex: 1 }} />
-          <Button label={confirmLabel} variant="primary" onPress={submit} disabled={!value.trim()} style={{ flex: 1 }} />
+          <Button
+            label={confirmLabel}
+            variant="primary"
+            onPress={submit}
+            disabled={!value.trim() && !allowEmpty}
+            style={{ flex: 1 }}
+          />
         </>
       }
     >

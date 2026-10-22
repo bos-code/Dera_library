@@ -13,6 +13,7 @@ import { useTabBarHeight } from "@/lib/useTabBarHeight";
 import { activateDocument, showDetails } from "@/services/documentActions";
 import { notifyLibraryChanged, useAppState } from "@/state/store";
 import { corner, spacing, type, useTheme } from "@/theme";
+import type { StackInfo } from "@/lib/versions";
 import type { DocumentRecord } from "@/types/document";
 import { CollectionPickerSheet } from "./CollectionPickerSheet";
 import { DocumentCard } from "./DocumentCard";
@@ -39,8 +40,11 @@ export function DocumentBrowser({
   onRefresh,
   extraActions = [],
   layout = "list",
+  onToggleStack,
 }: {
-  documents: DocumentRecord[];
+  documents: Array<DocumentRecord & { stack?: StackInfo }>;
+  /** Expands or collapses a version stack (rows carry `stack` when versions are grouped). */
+  onToggleStack?: (key: string) => void;
   header?: ReactElement;
   empty?: ReactElement;
   refreshing?: boolean;
@@ -162,6 +166,8 @@ export function DocumentBrowser({
               onPress={onPress}
               onLongPress={toggle}
               onInfo={tapOpens ? showDetails : undefined}
+              stack={item.stack}
+              onToggleStack={onToggleStack}
             />
           )
         }

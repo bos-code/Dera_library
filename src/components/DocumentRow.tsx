@@ -1,7 +1,8 @@
 import { memo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { formatRelativeDate, formatSize } from "@/lib/format";
-import { displayTitle } from "@/lib/title";
+import { docTitle } from "@/lib/title";
+import type { StackInfo } from "@/lib/versions";
 import { radius, spacing, type, useTheme } from "@/theme";
 import type { DocumentRecord } from "@/types/document";
 import { DocumentCover } from "./DocumentCover";
@@ -14,14 +15,17 @@ interface Props {
   selecting?: boolean;
   onPress: (doc: DocumentRecord) => void;
   onLongPress?: (doc: DocumentRecord) => void;
+  /** Version stack this row heads or belongs to (Library list only). */
+  stack?: StackInfo;
+  onToggleStack?: (key: string) => void;
   /** Shown as an ⓘ button when tapping the row opens the file instead of the details. */
   onInfo?: (doc: DocumentRecord) => void;
 }
 
-function DocumentRowImpl({ doc, selected, selecting, onPress, onLongPress, onInfo }: Props) {
+function DocumentRowImpl({ doc, selected, selecting, onPress, onLongPress, onInfo, stack, onToggleStack }: Props) {
   const t = useTheme();
   const unavailable = doc.status !== "available";
-  const title = displayTitle(doc.name);
+  const title = docTitle(doc);
   const compact = t.density === "compact";
   const meta = [formatSize(doc.size), formatRelativeDate(doc.modifiedAt)].join(" · ");
   return (
@@ -42,7 +46,12 @@ function DocumentRowImpl({ doc, selected, selecting, onPress, onLongPress, onInf
             ? "Opens the document. Long press to select"
             : "Opens document details. Long press to select"
       }
-      style={[styles.row, compact && styles.compact, selected && { backgroundColor: t.primarySoft }]}
+      style={[
+        styles.row,
+        compact && styles.compact,
+        stack && !stack.head && { paddingLeft: spacing.lg + 24 },
+        selected && { backgroundColor: t.primarySoft },
+      ]}
     >
       {selecting ? (
         <View
@@ -71,6 +80,20 @@ function DocumentRowImpl({ doc, selected, selecting, onPress, onLongPress, onInf
           </Text>
         </View>
         {doc.snippet ? <Snippet text={doc.snippet} /> : null}
+        {stack?.head && onToggleStack ? (
+          <Pressable
+            onPress={() => onToggleStack(stack.key)}
+            accessibilityRole="button"
+            accessibilityState={{ expanded: stack.expanded }}
+            accessibilityLabel={`${stack.count} versions. ${stack.expanded ? "Hide" : "Show"} older versions`}
+            hitSlop={8}
+            style={[styles.versions, { backgroundColor: t.surfaceAlt }]}
+          >
+            <Icon name="layers-outline" size={14} color={t.textMuted} />
+            <Text style={[type.tiny, { color: t.textMuted }]}>{stack.count} versions</Text>
+            <Icon name={stack.expanded ? "chevron-up" : "chevron-down"} size={14} color={t.textMuted} />
+          </Pressable>
+        ) : null}
         {doc.folder && !compact && !doc.snippet ? (
           <Text numberOfLines={1} style={[styles.folder, { color: t.textFaint }]}>
             {doc.folder}
@@ -95,6 +118,16 @@ const styles = StyleSheet.create({
     paddingRight: spacing.xs,
     paddingVertical: 10,
     minHeight: 76,
+  },
+  versions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    alignSelf: "flex-start",
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 999,
+    marginTop: 2,
   },
   compact: { minHeight: 56, paddingVertical: 6 },
   check: { width: 24, height: 24, borderRadius: 12, borderWidth: 2, alignItems: "center", justifyContent: "center" },

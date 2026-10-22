@@ -53,11 +53,12 @@ async function scanSource(
   source: { id: string; kind: "tree" | "files"; uri: string | null },
   total: ScanSummary,
   force: boolean,
+  inbox = true,
 ) {
   if (source.kind === "files") {
     const uris = await getPickedUris();
     const items = await scanner().describeUris(uris);
-    merge(total, await applyScan({ sourceId: PICKED_SOURCE_ID, items, force }));
+    merge(total, await applyScan({ sourceId: PICKED_SOURCE_ID, items, force }, { inbox }));
     await markSourceScanned(source.id, "ok");
     return;
   }
@@ -68,18 +69,20 @@ async function scanSource(
     await markSourceScanned(source.id, res.status);
     return;
   }
-  merge(total, await applyScan({ sourceId: source.id, items: res.items, force }));
+  merge(total, await applyScan({ sourceId: source.id, items: res.items, force }, { inbox }));
   await markSourceScanned(source.id, "ok");
 }
 
 /** Scans device storage and every added folder, then reconciles each into the index. */
 export function scanLibrary(options: { force?: boolean } = {}) {
   const force = !!options.force;
+  // The very first scan finds everything; only later discoveries are "new" and go to the Inbox.
+  const inbox = getState().lastScanAt != null;
   return withScanState(async (total) => {
     refreshAccess();
     const device = await scanner().scanDevice();
-    merge(total, await applyScan({ sourceId: "device", items: device.items, deviceMode: device.mode, force }));
-    for (const source of await getSources()) await scanSource(source, total, force);
+    merge(total, await applyScan({ sourceId: "device", items: device.items, deviceMode: device.mode, force }, { inbox }));
+    for (const source of await getSources()) await scanSource(source, total, force, inbox);
     await purgeStaleMissing();
   }).then((summary) => {
     // New or changed documents get their text read for search once the scan settles.
@@ -93,7 +96,7 @@ export async function addFolder(): Promise<boolean> {
   const picked = await scanner().pickFolder();
   if (!picked) return false;
   const id = await addTreeSource(picked.uri, picked.label);
-  await withScanState(async (total) => scanSource({ id, kind: "tree", uri: picked.uri }, total, false));
+  await withScanState(async (total) => scanSource({ id, kind: "tree", uri: picked.uri }, total, false, false));
   return true;
 }
 
@@ -105,7 +108,7 @@ export async function addFiles(): Promise<number> {
   await withScanState(async (total) => {
     const known = await getPickedUris();
     const items = await scanner().describeUris([...new Set([...known, ...uris])]);
-    merge(total, await applyScan({ sourceId: PICKED_SOURCE_ID, items }));
+    merge(total, await applyScan({ sourceId: PICKED_SOURCE_ID, items }, { inbox: true }));
   });
   return uris.length;
 }

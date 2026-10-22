@@ -17,3 +17,8 @@ export function displayTitle(fileName: string): string {
   s = s.replace(/\s+/g, " ").trim();
   return s || fileName;
 }
+
+/** What the library shows for a document: the user's own title if set, else a readable file name. */
+export function docTitle(doc: { name: string; customTitle?: string | null }): string {
+  return doc.customTitle?.trim() || displayTitle(doc.name);
+}

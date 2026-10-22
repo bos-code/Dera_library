@@ -3,10 +3,11 @@ import { useMemo, useState } from "react";
 import { Alert, FlatList, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { PromptSheet } from "@/components/PromptSheet";
-import { Button, EmptyState, Icon, IconButton, ListRow } from "@/components/ui";
+import { Button, EmptyState, Icon, IconButton, ListRow, SectionTitle } from "@/components/ui";
 import { CoverStack } from "@/components/CoverStack";
 import { buildTree, createCollection, flattenTree, getAllCollections, getCollectionPreviewIds } from "@/db/collections";
 import { getDocumentsByIds } from "@/db/documents";
+import { getSavedSearchCounts, getSavedSearches } from "@/db/savedSearches";
 import { plural } from "@/lib/format";
 import { useQuery } from "@/lib/useQuery";
 import { notifyLibraryChanged } from "@/state/store";
@@ -18,6 +19,10 @@ export default function CollectionsScreen() {
   const [creating, setCreating] = useState(false);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const { data } = useQuery(getAllCollections, []);
+  const { data: smart } = useQuery(async () => {
+    const searches = await getSavedSearches();
+    return { searches, counts: await getSavedSearchCounts(searches) };
+  }, []);
   const { data: previews } = useQuery(async () => {
     const ids = await getCollectionPreviewIds(3);
     const docs = new Map((await getDocumentsByIds([...new Set([...ids.values()].flat())])).map((d) => [d.id, d]));
@@ -51,14 +56,33 @@ export default function CollectionsScreen() {
         keyExtractor={(n) => n.id}
         contentContainerStyle={{ paddingBottom: 32 }}
         ListHeaderComponent={
-          <View style={[styles.header, { paddingTop: insets.top + spacing.sm }]}>
-            <View style={{ flex: 1 }}>
-              <Text accessibilityRole="header" style={[styles.title, { color: t.text }]}>
-                Collections
-              </Text>
-              <Text style={{ color: t.textMuted, fontSize: font.small }}>Virtual shelves. Files stay where they are.</Text>
+          <View>
+            <View style={[styles.header, { paddingTop: insets.top + spacing.sm }]}>
+              <View style={{ flex: 1 }}>
+                <Text accessibilityRole="header" style={[styles.title, { color: t.text }]}>
+                  Collections
+                </Text>
+                <Text style={{ color: t.textMuted, fontSize: font.small }}>Virtual shelves. Files stay where they are.</Text>
+              </View>
+              <IconButton icon="folder-plus-outline" label="New collection" onPress={() => setCreating(true)} />
             </View>
-            <IconButton icon="folder-plus-outline" label="New collection" onPress={() => setCreating(true)} />
+            {smart?.searches.length ? (
+              <>
+                <SectionTitle>Smart collections</SectionTitle>
+                {smart.searches.map((ss) => (
+                  <ListRow
+                    key={ss.id}
+                    icon="lightning-bolt-outline"
+                    iconColor={t.primary}
+                    title={ss.name}
+                    subtitle={`${plural(smart.counts.get(ss.id) ?? 0, "document")} · updates automatically`}
+                    onPress={() => router.push({ pathname: "/saved/[id]", params: { id: ss.id } })}
+                    right={<Icon name="chevron-right" color={t.textFaint} />}
+                  />
+                ))}
+                {data?.length ? <SectionTitle>Your collections</SectionTitle> : null}
+              </>
+            ) : null}
           </View>
         }
         renderItem={({ item }) => (
