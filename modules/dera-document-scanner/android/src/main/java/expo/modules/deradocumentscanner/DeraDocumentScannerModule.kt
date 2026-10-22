@@ -32,6 +32,7 @@ private const val REQUEST_PICK_FILES = 48102
 private const val REQUEST_CREATE_FILE = 48103
 private const val REQUEST_OPEN_FILE = 48104
 private const val REQUEST_PICK_BACKUP = 48105
+private const val REQUEST_SCAN = 48106
 
 private val SUPPORTED_EXTENSIONS = setOf(
   "pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "txt", "epub", "csv",
@@ -67,6 +68,52 @@ class DeraDocumentScannerModule : Module() {
   private val fileOps by lazy { FileOps(context) }
   private var storageWatcher: StorageWatcher? = null
   private val backupWriter by lazy { BackupWriter(context) }
+  private val pdfPages by lazy { PdfPages(context) }
+  private var transfer: TransferServer? = null
+
+  private fun startTransfer(docs: List<Map<String, Any?>>): Map<String, Any?>? {
+    transfer?.stop()
+    val address = TransferServer.localAddress() ?: return null
+    val entries = docs.mapNotNull { d ->
+      val id = (d["id"] as? Number)?.toLong() ?: return@mapNotNull null
+      TransferServer.Entry(
+        id,
+        d["name"] as? String ?: return@mapNotNull null,
+        d["title"] as? String ?: (d["name"] as String),
+        (d["size"] as? Number)?.toLong() ?: 0L,
+        d["mimeType"] as? String ?: "application/octet-stream"
+      )
+    }
+    val uris = docs.mapNotNull { d -> (d["id"] as? Number)?.toLong()?.let { id -> (d["uri"] as? String)?.let { id to it } } }.toMap()
+    val ctx = context
+    val server = TransferServer(
+      catalog = { entries },
+      openFile = { id ->
+        uris[id]?.let { uri ->
+          val parsed = Uri.parse(uri)
+          try {
+            if (parsed.scheme == ContentResolver.SCHEME_FILE) {
+              val f = File(parsed.path!!)
+              java.io.FileInputStream(f) to f.length()
+            } else {
+              val afd = ctx.contentResolver.openAssetFileDescriptor(parsed, "r") ?: return@let null
+              afd.createInputStream() to afd.length
+            }
+          } catch (_: Exception) {
+            null
+          }
+        }
+      },
+      receive = { name, body, _ ->
+        val saved = shareAndPrint.saveStream(name) { body }
+        if (saved != null) sendEvent("onTransferReceived", saved)
+        saved != null
+      },
+    )
+    val port = server.start()
+    transfer = server
+    return mapOf("url" to "http://$address:$port/?t=${server.token}", "address" to "$address:$port", "code" to server.token)
+  }
   private val shareAndPrint by lazy { ShareAndPrint(context) }
   private var pendingRequest = 0
 
@@ -76,7 +123,7 @@ class DeraDocumentScannerModule : Module() {
   override fun definition() = ModuleDefinition {
     Name("DeraDocumentScanner")
 
-    Events("onScanProgress", "onShare", "onStorageChanged")
+    Events("onScanProgress", "onShare", "onStorageChanged", "onTransferReceived")
 
     OnCreate {
       appContext.reactContext?.let { ctx ->
@@ -263,6 +310,61 @@ class DeraDocumentScannerModule : Module() {
       true
     }
 
+    // region Built-in PDF reader
+
+    AsyncFunction("openPdf") Coroutine { uri: String -> withContext(Dispatchers.IO) { pdfPages.open(uri) } }
+
+    AsyncFunction("renderPdfPage") Coroutine { uri: String, index: Int, width: Int ->
+      withContext(Dispatchers.IO) { pdfPages.render(uri, index, width.coerceIn(200, 3000)) }
+    }
+
+    AsyncFunction("closePdf") Coroutine { -> withContext(Dispatchers.IO) { pdfPages.close() } }
+
+    // endregion
+
+    // region Camera scanner
+
+    AsyncFunction("scanDocument") { promise: Promise ->
+      val activity = appContext.currentActivity
+      if (activity == null) {
+        promise.reject(CodedException("ERR_NO_ACTIVITY", "No foreground activity", null))
+        return@AsyncFunction
+      }
+      pendingPromise?.resolve(null)
+      pendingPromise = promise
+      pendingRequest = REQUEST_SCAN
+      activity.runOnUiThread {
+        try {
+          DocScanner.start(activity, REQUEST_SCAN) { e ->
+            pendingPromise = null
+            pendingRequest = 0
+            promise.reject(CodedException("ERR_SCANNER", e.message ?: "The scanner isn't available on this phone", e))
+          }
+        } catch (e: Throwable) {
+          pendingPromise = null
+          pendingRequest = 0
+          promise.reject(CodedException("ERR_SCANNER", "The scanner needs Google Play services", e))
+        }
+      }
+    }
+
+    // endregion
+
+    // region Wi-Fi transfer
+
+    /** docs: [{ id, name, title, uri, size, mimeType }]. Returns { url, code } or null when not on a network. */
+    AsyncFunction("startTransfer") Coroutine { docs: List<Map<String, Any?>> ->
+      withContext(Dispatchers.IO) { startTransfer(docs) }
+    }
+
+    Function("stopTransfer") {
+      transfer?.stop()
+      transfer = null
+      true
+    }
+
+    // endregion
+
     AsyncFunction("clearThumbnails") Coroutine { ->
       withContext(Dispatchers.IO) { thumbnails.clear() }
     }
@@ -372,6 +474,12 @@ class DeraDocumentScannerModule : Module() {
               Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
             )
             promise.resolve(mapOf("uri" to tree.toString(), "label" to treeLabel(tree)))
+          }
+          REQUEST_SCAN -> {
+            val (uri, pages) = DocScanner.result(data) ?: return@OnActivityResult promise.resolve(null)
+            val stamp = java.text.SimpleDateFormat("yyyy-MM-dd HH.mm", java.util.Locale.getDefault()).format(java.util.Date())
+            val saved = shareAndPrint.saveShared(uri, "Scan $stamp.pdf")
+            promise.resolve(saved?.plus("pages" to pages))
           }
           REQUEST_PICK_FILES -> {
             val uris = mutableListOf<Uri>()

@@ -191,6 +191,25 @@ export default function AppearanceScreen() {
         <Chip label="Compact" selected={a.density === "compact"} onPress={() => updateAppearance({ density: "compact" })} />
       </View>
 
+      <SectionTitle>Open PDFs in</SectionTitle>
+      <View style={styles.row}>
+        <Chip
+          label="Dera reader"
+          icon="book-open-page-variant"
+          selected={a.pdfReader === "dera"}
+          onPress={() => updateAppearance({ pdfReader: "dera" })}
+        />
+        <Chip
+          label="Another app"
+          icon="open-in-new"
+          selected={a.pdfReader === "external"}
+          onPress={() => updateAppearance({ pdfReader: "external" })}
+        />
+      </View>
+      <Text style={[type.tiny, styles.hint, { color: t.textFaint }]}>
+        Dera's reader remembers your page and times your reading exactly. Other formats always open in their own app.
+      </Text>
+
       <SectionTitle>Tapping a document</SectionTitle>
       <View style={styles.row}>
         <Chip

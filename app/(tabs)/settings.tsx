@@ -246,6 +246,13 @@ export default function SettingsScreen() {
           />
         ) : null}
         <ListRow
+          icon="wifi-arrow-up-down"
+          title="Send to computer"
+          subtitle="Move documents between this phone and a computer over Wi-Fi"
+          onPress={() => router.push("/transfer")}
+          right={<Icon name="chevron-right" color={t.textFaint} />}
+        />
+        <ListRow
           icon="harddisk"
           title="Storage insights"
           subtitle="Space by type and folder, largest files, duplicates"

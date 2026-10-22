@@ -224,6 +224,9 @@ CREATE TABLE app_log(
 );
 `;
 
+/** v11: where the built-in reader left off in each PDF. */
+const v11 = `ALTER TABLE documents ADD COLUMN last_page INTEGER;`;
+
 export const migrations: Migration[] = [
   { version: 1, up: (db) => db.execAsync(v1) },
   { version: 2, rebuildsTables: true, up: (db) => db.execAsync(v2) },
@@ -235,6 +238,7 @@ export const migrations: Migration[] = [
   { version: 8, up: (db) => db.execAsync(v8) },
   { version: 9, optional: true, up: (db) => db.execAsync(v9) },
   { version: 10, up: (db) => db.execAsync(v10) },
+  { version: 11, up: (db) => db.execAsync(v11) },
 ];
 
 export async function migrate(db: SQLiteDatabase): Promise<void> {

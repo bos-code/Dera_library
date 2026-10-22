@@ -97,12 +97,24 @@ interface NativeScanner {
     items: Array<{ id: string; label: string; longLabel?: string; url: string; icon: "search" | "book" | "inbox" | "doc" }>,
   ): boolean;
   updateWidget(json: string): boolean;
+  // Built-in PDF reader
+  openPdf(uri: string): Promise<{ pageCount: number; sizes: Array<[number, number]> }>;
+  renderPdfPage(uri: string, index: number, width: number): Promise<string | null>;
+  closePdf(): Promise<void>;
+  // Camera scanner (ML Kit via Play services)
+  scanDocument(): Promise<(ScannedItem & { pages: number }) | null>;
+  // Wi-Fi transfer
+  startTransfer(
+    docs: Array<{ id: number; name: string; title: string; uri: string; size: number; mimeType: string }>,
+  ): Promise<{ url: string; address: string; code: string } | null>;
+  stopTransfer(): boolean;
   // Automatic backups
   pickBackupFolder(): Promise<{ uri: string; label: string } | null>;
   writeBackup(treeUri: string, fileName: string, text: string, keep: number): Promise<"ok" | "revoked" | "error">;
   addListener(event: "onScanProgress", listener: (p: ScanProgress) => void): EventSubscription;
   addListener(event: "onShare", listener: () => void): EventSubscription;
   addListener(event: "onStorageChanged", listener: () => void): EventSubscription;
+  addListener(event: "onTransferReceived", listener: (item: ScannedItem) => void): EventSubscription;
 }
 
 const native = requireOptionalNativeModule<NativeScanner>("DeraDocumentScanner");

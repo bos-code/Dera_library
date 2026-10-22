@@ -16,6 +16,8 @@ export interface Appearance {
   density: "comfortable" | "compact";
   /** What tapping a document does; the other action is on the ⓘ button. */
   tapAction: "open" | "details";
+  /** Where PDFs open: Dera's own reader (remembers the page, times reading exactly) or another app. */
+  pdfReader: "dera" | "external";
 }
 
 export interface ReadingPrompt {
@@ -49,6 +51,7 @@ export const DEFAULT_APPEARANCE: Appearance = {
   surfaces: "glass",
   density: "comfortable",
   tapAction: "open",
+  pdfReader: "dera",
 };
 
 export interface AppState {

@@ -75,6 +75,8 @@ function ThemedStack() {
         <Stack.Screen name="storage" options={{ title: "Storage" }} />
         <Stack.Screen name="trash" options={{ title: "Trash" }} />
         <Stack.Screen name="diagnostics" options={{ title: "Diagnostics" }} />
+        <Stack.Screen name="reader/[id]" options={{ title: "" }} />
+        <Stack.Screen name="transfer" options={{ title: "Send to computer" }} />
       </Stack>
       <ReadingPromptSheet />
       <ToastBar />

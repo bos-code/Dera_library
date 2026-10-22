@@ -84,17 +84,23 @@ internal class ShareAndPrint(private val context: Context) {
    * Shared URIs are only readable for a moment, so the document is saved to "Documents/Dera Library" on the
    * phone (a real file, visible to other apps) and the library points at that copy.
    */
-  fun saveShared(uri: String): Map<String, Any?>? {
+  fun saveShared(uri: String, nameOverride: String? = null): Map<String, Any?>? {
     val source = Uri.parse(uri)
-    val name = displayName(source) ?: "Shared document"
-    return try {
-      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) saveViaMediaStore(source, name) else saveToFile(source, name)
-    } catch (_: Exception) {
-      null
+    val name = nameOverride ?: displayName(source) ?: "Shared document"
+    return saveStream(name) {
+      if (source.scheme == ContentResolver.SCHEME_FILE) FileInputStream(File(source.path!!)) else context.contentResolver.openInputStream(source)
     }
   }
 
-  private fun saveViaMediaStore(source: Uri, name: String): Map<String, Any?>? {
+  /** Saves bytes from [open] as a new document in Documents/Dera Library; returns its library item. */
+  fun saveStream(name: String, open: () -> java.io.InputStream?): Map<String, Any?>? =
+    try {
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) saveViaMediaStore(name, open) else saveToFile(name, open)
+    } catch (_: Exception) {
+      null
+    }
+
+  private fun saveViaMediaStore(name: String, open: () -> java.io.InputStream?): Map<String, Any?>? {
     val resolver = context.contentResolver
     val values = ContentValues().apply {
       put(MediaStore.MediaColumns.DISPLAY_NAME, name)
@@ -104,7 +110,7 @@ internal class ShareAndPrint(private val context: Context) {
     val collection = MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
     val target = resolver.insert(collection, values) ?: return null
     try {
-      resolver.openInputStream(source)?.use { input -> resolver.openOutputStream(target)?.use { input.copyTo(it) } } ?: throw IllegalStateException()
+      open()?.use { input -> resolver.openOutputStream(target)?.use { input.copyTo(it) } } ?: throw IllegalStateException()
       resolver.update(target, ContentValues().apply { put(MediaStore.MediaColumns.IS_PENDING, 0) }, null, null)
     } catch (e: Exception) {
       resolver.delete(target, null, null)
@@ -120,13 +126,13 @@ internal class ShareAndPrint(private val context: Context) {
     return null
   }
 
-  private fun saveToFile(source: Uri, name: String): Map<String, Any?>? {
+  private fun saveToFile(name: String, open: () -> java.io.InputStream?): Map<String, Any?>? {
     @Suppress("DEPRECATION")
     val dir = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS), FOLDER).apply { mkdirs() }
     var target = File(dir, name)
     var n = 2
     while (target.exists()) target = File(dir, "${name.substringBeforeLast('.')} (${n++})${name.substringAfterLast('.', "").let { if (it.isEmpty()) "" else ".$it" }}")
-    context.contentResolver.openInputStream(source)?.use { input -> FileOutputStream(target).use { input.copyTo(it) } } ?: return null
+    open()?.use { input -> FileOutputStream(target).use { input.copyTo(it) } } ?: return null
     return item(Uri.fromFile(target).toString(), target.path, target.name, target.length(), target.lastModified())
   }
 

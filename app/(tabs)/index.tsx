@@ -21,6 +21,7 @@ import { TYPE_FILTERS } from "@/lib/fileTypes";
 import { plural } from "@/lib/format";
 import { useDebounced, useQuery } from "@/lib/useQuery";
 import { stackVersions } from "@/lib/versions";
+import { scanWithCamera } from "@/services/camera";
 import { scanLibrary } from "@/services/scan";
 import { getState, notifyLibraryChanged, setState, useAppState } from "@/state/store";
 import { corner, spacing, type, useTheme } from "@/theme";
@@ -313,6 +314,7 @@ export default function LibraryScreen() {
               {stats?.missing ? ` · ${stats.missing + stats.revoked} unavailable` : ""}
             </Text>
           </View>
+          <IconButton icon="camera-document" label="Scan a paper document" onPress={() => void scanWithCamera()} />
           <IconButton icon="refresh" label="Rescan device" onPress={() => void scanLibrary()} />
         </View>
         <View style={{ paddingHorizontal: spacing.lg }}>

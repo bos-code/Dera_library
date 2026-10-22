@@ -8,6 +8,17 @@ export function showDetails(doc: Pick<DocumentRecord, "id">): void {
   router.push({ pathname: "/document/[id]", params: { id: String(doc.id) } });
 }
 
+/** PDFs open in Dera's reader unless the user prefers another app. */
+export function opensInReader(doc: Pick<DocumentRecord, "extension" | "status">): boolean {
+  return doc.extension.toLowerCase() === "pdf" && doc.status === "available" && getState().appearance.pdfReader === "dera";
+}
+
+/** The main "Open" action: built-in reader for PDFs (per setting), otherwise another app. */
+export function openDocumentPreferred(doc: DocumentRecord): void {
+  if (opensInReader(doc)) router.push({ pathname: "/reader/[id]", params: { id: String(doc.id) } });
+  else openDocumentPreferred(doc);
+}
+
 export async function openWithFeedback(doc: DocumentRecord): Promise<void> {
   const result = await openDocument(doc);
   if (!result.ok) Alert.alert(result.title ?? "Couldn't open", result.message);

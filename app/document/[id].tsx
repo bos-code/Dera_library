@@ -24,6 +24,7 @@ import { formatDateTime, formatRelativeDate, formatSize, plural } from "@/lib/fo
 import { haptic } from "@/lib/haptics";
 import { docTitle } from "@/lib/title";
 import { useQuery } from "@/lib/useQuery";
+import { opensInReader } from "@/services/documentActions";
 import { openDocument } from "@/services/open";
 import { showUndo } from "@/services/toast";
 import {
@@ -106,6 +107,10 @@ export default function DocumentScreen() {
   const unavailable = doc.status !== "available";
 
   const open = async () => {
+    if (opensInReader(doc)) {
+      router.push({ pathname: "/reader/[id]", params: { id: String(doc.id) } });
+      return;
+    }
     setOpening(true);
     const result = await openDocument(doc);
     setOpening(false);

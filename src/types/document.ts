@@ -28,6 +28,8 @@ export interface DocumentRecord {
   note: string | null;
   /** 1 while a newly found document waits in the Inbox to be filed. */
   inbox: number;
+  /** Page the built-in reader was on (0-based), PDFs only. */
+  lastPage: number | null;
   wordCount: number | null;
   /** Excerpt around a text match, with matches wrapped in \u0001 … \u0002. Only set by text searches. */
   snippet?: string;

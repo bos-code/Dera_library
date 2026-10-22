@@ -9,7 +9,7 @@ const SELECT_DOCUMENT = `
          d.folder, d.type, d.source_id AS sourceId, d.status, d.missing_since AS missingSince,
          d.last_opened_at AS lastOpenedAt, (f.document_id IS NOT NULL) AS isFavorite,
          d.reading_status AS readingStatus, d.page_count AS pageCount, d.word_count AS wordCount,
-         d.custom_title AS customTitle, d.note, d.inbox
+         d.custom_title AS customTitle, d.note, d.inbox, d.last_page AS lastPage
   FROM documents d LEFT JOIN favorites f ON f.document_id = d.id`;
 
 /** Documents missing for longer than this, with no user organization attached, are purged. */
@@ -429,4 +429,9 @@ export async function insertDocuments(items: ScannedItem[], options: { inbox: bo
 export async function findDocumentByPath(path: string): Promise<DocumentRecord | null> {
   const db = await getDb();
   return db.getFirstAsync<DocumentRecord>(`${SELECT_DOCUMENT} WHERE d.path = ?`, path);
+}
+
+export async function setLastPage(id: number, page: number): Promise<void> {
+  const db = await getDb();
+  await db.runAsync("UPDATE documents SET last_page=? WHERE id=?", page, id);
 }
