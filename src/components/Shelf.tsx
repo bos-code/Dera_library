@@ -1,5 +1,6 @@
-import { router } from "expo-router";
 import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
+import { activateDocument, showDetails } from "@/services/documentActions";
+import { useAppState } from "@/state/store";
 import { spacing, type, useTheme } from "@/theme";
 import type { DocumentRecord } from "@/types/document";
 import { DocumentCard } from "./DocumentCard";
@@ -7,11 +8,10 @@ import { Icon } from "./ui";
 
 const CARD_WIDTH = 96;
 
-const open = (doc: DocumentRecord) => router.push({ pathname: "/document/[id]", params: { id: String(doc.id) } });
-
 /** A titled, horizontally scrolling row of covers (Continue reading, Favorites…). */
 export function Shelf({ title, documents, onSeeAll }: { title: string; documents: DocumentRecord[]; onSeeAll?: () => void }) {
   const t = useTheme();
+  const tapOpens = useAppState((s) => s.appearance.tapAction === "open");
   if (!documents.length) return null;
   return (
     <View style={styles.wrap}>
@@ -38,7 +38,15 @@ export function Shelf({ title, documents, onSeeAll }: { title: string; documents
         keyExtractor={(d) => String(d.id)}
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.row}
-        renderItem={({ item }) => <DocumentCard doc={item} width={CARD_WIDTH} compact onPress={open} />}
+        renderItem={({ item }) => (
+          <DocumentCard
+            doc={item}
+            width={CARD_WIDTH}
+            compact
+            onPress={activateDocument}
+            onInfo={tapOpens ? showDetails : undefined}
+          />
+        )}
       />
     </View>
   );

@@ -1,5 +1,6 @@
 import { getMeta, setMeta } from "@/db/database";
 import { addSession } from "@/db/reading";
+import { haptic } from "@/lib/haptics";
 import { displayTitle } from "@/lib/title";
 import { getState, notifyLibraryChanged, setState } from "@/state/store";
 import type { DocumentRecord } from "@/types/document";
@@ -59,6 +60,7 @@ export async function finishReading(now = Date.now()): Promise<void> {
 
 export async function saveReading(prompt: Pending, durationMs: number, source: "estimate" | "manual" = "estimate") {
   setState({ readingPrompt: null });
+  haptic.success();
   await addSession({ ...prompt, durationMs, source });
   notifyLibraryChanged();
 }

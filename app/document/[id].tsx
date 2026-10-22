@@ -17,9 +17,11 @@ import { forgetDocuments, getDocument } from "@/db/documents";
 import { getDocumentTags, tagDocuments, untagDocument } from "@/db/tags";
 import { TYPE_LABEL } from "@/lib/fileTypes";
 import { formatDateTime, formatRelativeDate, formatSize, plural } from "@/lib/format";
+import { haptic } from "@/lib/haptics";
 import { displayTitle } from "@/lib/title";
 import { useQuery } from "@/lib/useQuery";
 import { openDocument } from "@/services/open";
+import { showUndo } from "@/services/toast";
 import { scanLibrary } from "@/services/scan";
 import { notifyLibraryChanged } from "@/state/store";
 import { font, radius, spacing, type, useTheme } from "@/theme";
@@ -95,6 +97,7 @@ export default function DocumentScreen() {
   };
 
   const toggleFavorite = async () => {
+    haptic.tap();
     starScale.value = withSequence(withSpring(1.35, { damping: 6 }), withSpring(1));
     await setFavorite([doc.id], !doc.isFavorite);
     notifyLibraryChanged();
@@ -256,20 +259,30 @@ export default function DocumentScreen() {
         <View style={styles.chips}>
           {tags.length ? (
             tags.map((tag) => (
-              <Pressable
-                key={tag.id}
-                onPress={() => router.push({ pathname: "/tag/[id]", params: { id: tag.id } })}
-                onLongPress={async () => {
-                  await untagDocument(tag.id, doc.id);
-                  notifyLibraryChanged();
-                }}
-                accessibilityRole="link"
-                accessibilityHint="Long press to remove this tag"
-                style={[styles.chip, { backgroundColor: t.surfaceAlt }]}
-              >
-                <Icon name="tag-outline" size={16} color={t.textMuted} />
-                <Text style={{ color: t.text, fontSize: font.small, fontWeight: "600" }}>{tag.name}</Text>
-              </Pressable>
+              <View key={tag.id} style={[styles.chip, { backgroundColor: t.surfaceAlt, paddingRight: 2 }]}>
+                <Pressable
+                  onPress={() => router.push({ pathname: "/tag/[id]", params: { id: tag.id } })}
+                  accessibilityRole="link"
+                  accessibilityLabel={`Tag ${tag.name}`}
+                  style={styles.chipLabel}
+                >
+                  <Icon name="tag-outline" size={16} color={t.textMuted} />
+                  <Text style={{ color: t.text, fontSize: font.small, fontWeight: "600" }}>{tag.name}</Text>
+                </Pressable>
+                <Pressable
+                  onPress={async () => {
+                    await untagDocument(tag.id, doc.id);
+                    notifyLibraryChanged();
+                    showUndo(`Removed tag “${tag.name}”`, () => tagDocuments(tag.id, [doc.id]));
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Remove tag ${tag.name}`}
+                  hitSlop={8}
+                  style={styles.chipRemove}
+                >
+                  <Icon name="close" size={16} color={t.textMuted} />
+                </Pressable>
+              </View>
             ))
           ) : (
             <Text style={{ color: t.textFaint, fontSize: font.small }}>No tags yet.</Text>
@@ -342,6 +355,8 @@ const styles = StyleSheet.create({
   },
   actions: { flexDirection: "row", gap: spacing.sm, paddingHorizontal: spacing.lg, paddingTop: spacing.xl },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, paddingHorizontal: spacing.lg },
+  chipLabel: { flexDirection: "row", alignItems: "center", gap: 6, minHeight: 36 },
+  chipRemove: { width: 32, height: 36, alignItems: "center", justifyContent: "center" },
   chip: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 12, minHeight: 36, borderRadius: radius.pill },
   detail: { flexDirection: "row", paddingHorizontal: spacing.lg, paddingVertical: spacing.md, gap: spacing.md },
 });

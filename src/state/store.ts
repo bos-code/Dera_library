@@ -14,6 +14,8 @@ export interface Appearance {
   accent: string | null;
   surfaces: "glass" | "solid";
   density: "comfortable" | "compact";
+  /** What tapping a document does; the other action is on the ⓘ button. */
+  tapAction: "open" | "details";
 }
 
 export interface ReadingPrompt {
@@ -22,6 +24,13 @@ export interface ReadingPrompt {
   startedAt: number;
   /** Measured time away, capped; null when too long ago to guess (the user picks). */
   suggestedMs: number | null;
+}
+
+export interface Toast {
+  id: number;
+  message: string;
+  actionLabel?: string;
+  action?: () => void | Promise<void>;
 }
 
 export interface FocusSession {
@@ -39,6 +48,7 @@ export const DEFAULT_APPEARANCE: Appearance = {
   accent: null,
   surfaces: "glass",
   density: "comfortable",
+  tapAction: "open",
 };
 
 export interface AppState {
@@ -50,6 +60,8 @@ export interface AppState {
   readingPrompt: ReadingPrompt | null;
   /** A running focus session (timer the user starts and stops explicitly). */
   focus: FocusSession | null;
+  /** Bottom message bar, usually offering Undo. */
+  toast: Toast | null;
   access: StorageAccess | null;
   scanning: boolean;
   progress: ScanProgress | null;
@@ -72,6 +84,7 @@ let state: AppState = {
   appearance: DEFAULT_APPEARANCE,
   readingPrompt: null,
   focus: null,
+  toast: null,
   access: null,
   scanning: false,
   progress: null,

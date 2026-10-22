@@ -1,4 +1,5 @@
 import { recordOpen } from "@/db/activity";
+import { haptic } from "@/lib/haptics";
 import { beginReading } from "./readingSession";
 import { setDocumentStatus } from "@/db/documents";
 import { NativeUnavailableError, scanner } from "@/native/scanner";
@@ -33,6 +34,7 @@ export async function openDocument(doc: DocumentRecord, options: { trackReading?
         notifyLibraryChanged();
         return { ok: true };
       case "missing":
+        haptic.warning();
         await setDocumentStatus(doc.id, "missing");
         notifyLibraryChanged();
         return {

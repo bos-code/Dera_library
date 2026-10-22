@@ -21,6 +21,7 @@ import { loadAppearance } from "@/services/appearance";
 import { loadFocus } from "@/services/focus";
 import { finishReading } from "@/services/readingSession";
 import { ReadingPromptSheet } from "@/components/ReadingSheets";
+import { ToastBar } from "@/components/ToastBar";
 import { scanLibrary } from "@/services/scan";
 import { getState, setState } from "@/state/store";
 import { font, spacing, ThemeProvider, useTheme } from "@/theme";
@@ -58,6 +59,7 @@ function ThemedStack() {
         <Stack.Screen name="appearance" options={{ title: "Appearance" }} />
       </Stack>
       <ReadingPromptSheet />
+      <ToastBar />
     </GradientCanvas>
   );
 }

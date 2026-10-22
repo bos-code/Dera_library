@@ -168,3 +168,85 @@ export async function setDocumentCollections(documentId: number, collectionIds: 
     }
   });
 }
+
+export interface CollectionSnapshot {
+  /** Parent-first, so restoring never references a missing parent. */
+  collections: Array<{
+    id: string;
+    name: string;
+    parent_id: string | null;
+    created_at: number;
+    updated_at: number;
+    sort_order: number;
+  }>;
+  links: Array<{ collection_id: string; document_id: number; added_at: number }>;
+}
+
+/** The collection, all its sub-collections and their memberships: everything deleting it removes. */
+export async function snapshotCollection(id: string): Promise<CollectionSnapshot> {
+  const db = await getDb();
+  const all = await db.getAllAsync<CollectionSnapshot["collections"][number]>(
+    "SELECT id, name, parent_id, created_at, updated_at, sort_order FROM collections",
+  );
+  const subtree: CollectionSnapshot["collections"] = [];
+  const queue = all.filter((c) => c.id === id);
+  while (queue.length) {
+    const c = queue.shift()!;
+    subtree.push(c);
+    queue.push(...all.filter((x) => x.parent_id === c.id));
+  }
+  const ids = subtree.map((c) => c.id);
+  const links = ids.length
+    ? await db.getAllAsync<CollectionSnapshot["links"][number]>(
+        `SELECT collection_id, document_id, added_at FROM collection_documents WHERE collection_id IN (${ids.map(() => "?").join(",")})`,
+        ...ids,
+      )
+    : [];
+  return { collections: subtree, links };
+}
+
+export async function restoreCollection(snapshot: CollectionSnapshot): Promise<void> {
+  const db = await getDb();
+  await db.withTransactionAsync(async () => {
+    for (const c of snapshot.collections) {
+      await db.runAsync(
+        `INSERT OR IGNORE INTO collections(id,name,parent_id,created_at,updated_at,sort_order)
+         SELECT ?,?,?,?,?,? WHERE ? IS NULL OR EXISTS(SELECT 1 FROM collections WHERE id=?)`,
+        c.id,
+        c.name,
+        c.parent_id,
+        c.created_at,
+        c.updated_at,
+        c.sort_order,
+        c.parent_id,
+        c.parent_id,
+      );
+    }
+    for (const l of snapshot.links) {
+      await db.runAsync(
+        "INSERT OR IGNORE INTO collection_documents(collection_id,document_id,added_at) SELECT ?,?,? WHERE EXISTS(SELECT 1 FROM documents WHERE id=?)",
+        l.collection_id,
+        l.document_id,
+        l.added_at,
+        l.document_id,
+      );
+    }
+  });
+}
+
+/** Up to `per` most recently added available document ids per collection, for cover previews. */
+export async function getCollectionPreviewIds(per = 3): Promise<Map<string, number[]>> {
+  const db = await getDb();
+  const rows = await db.getAllAsync<{ collection_id: string; document_id: number }>(
+    `SELECT collection_id, document_id FROM (
+       SELECT cd.collection_id, cd.document_id,
+              ROW_NUMBER() OVER (PARTITION BY cd.collection_id ORDER BY cd.added_at DESC, cd.document_id) AS rn
+       FROM collection_documents cd JOIN documents d ON d.id = cd.document_id
+       WHERE d.status = 'available'
+     ) WHERE rn <= ?`,
+    per,
+  );
+  const out = new Map<string, number[]>();
+  for (const r of rows) out.set(r.collection_id, [...(out.get(r.collection_id) ?? []), r.document_id]);
+  return out;
+}

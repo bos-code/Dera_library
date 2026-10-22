@@ -74,3 +74,41 @@ export async function deleteTag(id: string): Promise<void> {
   const db = await getDb();
   await db.runAsync("DELETE FROM tags WHERE id=?", id);
 }
+
+export interface TagSnapshot {
+  tag: { id: string; name: string; created_at: number };
+  links: Array<{ document_id: number; added_at: number }>;
+}
+
+/** Everything needed to undo deleting a tag. */
+export async function snapshotTag(id: string): Promise<TagSnapshot | null> {
+  const db = await getDb();
+  const tag = await db.getFirstAsync<TagSnapshot["tag"]>("SELECT id, name, created_at FROM tags WHERE id=?", id);
+  if (!tag) return null;
+  const links = await db.getAllAsync<TagSnapshot["links"][number]>(
+    "SELECT document_id, added_at FROM document_tags WHERE tag_id=?",
+    id,
+  );
+  return { tag, links };
+}
+
+export async function restoreTag(snapshot: TagSnapshot): Promise<void> {
+  const db = await getDb();
+  await db.withTransactionAsync(async () => {
+    await db.runAsync(
+      "INSERT OR IGNORE INTO tags(id,name,created_at) VALUES(?,?,?)",
+      snapshot.tag.id,
+      snapshot.tag.name,
+      snapshot.tag.created_at,
+    );
+    for (const l of snapshot.links) {
+      await db.runAsync(
+        "INSERT OR IGNORE INTO document_tags(document_id,tag_id,added_at) SELECT ?,?,? WHERE EXISTS(SELECT 1 FROM documents WHERE id=?)",
+        l.document_id,
+        snapshot.tag.id,
+        l.added_at,
+        l.document_id,
+      );
+    }
+  });
+}

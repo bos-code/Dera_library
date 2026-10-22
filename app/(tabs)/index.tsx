@@ -9,7 +9,8 @@ import { Shelf } from "@/components/Shelf";
 import { getReadingSummary } from "@/db/reading";
 import { ScanBanner } from "@/components/ScanBanner";
 import { SearchBar } from "@/components/SearchBar";
-import { Button, Chip, EmptyState, Icon, IconButton, type IconName } from "@/components/ui";
+import { Sheet } from "@/components/Sheet";
+import { Button, Chip, EmptyState, Icon, IconButton, ListRow, type IconName } from "@/components/ui";
 import { setMeta } from "@/db/database";
 import { getLibraryStats, getShelfCounts, searchDocuments, SMART_SHELVES, type SmartShelf } from "@/db/documents";
 import { TYPE_FILTERS } from "@/lib/fileTypes";
@@ -20,14 +21,15 @@ import { getState, setState, useAppState } from "@/state/store";
 import { corner, spacing, type, useTheme } from "@/theme";
 import type { LibraryView, SortMode } from "@/types/document";
 
-const SORTS: Array<{
-  value: SortMode;
-  label: string;
-  icon: "clock-outline" | "sort-alphabetical-ascending" | "sort-numeric-descending";
-}> = [
+const SORTS: Array<{ value: SortMode; label: string; icon: IconName }> = [
   { value: "modified-desc", label: "Recently modified", icon: "clock-outline" },
-  { value: "name-asc", label: "Name", icon: "sort-alphabetical-ascending" },
+  { value: "modified-asc", label: "Oldest modified", icon: "clock-start" },
+  { value: "opened-desc", label: "Recently opened", icon: "history" },
+  { value: "added-desc", label: "Recently added", icon: "new-box" },
+  { value: "name-asc", label: "Name A–Z", icon: "sort-alphabetical-ascending" },
+  { value: "name-desc", label: "Name Z–A", icon: "sort-alphabetical-descending" },
   { value: "size-desc", label: "Largest first", icon: "sort-numeric-descending" },
+  { value: "size-asc", label: "Smallest first", icon: "sort-numeric-ascending" },
 ];
 
 const VIEWS: Array<{ value: LibraryView; label: string; icon: "bookshelf" | "star-outline" | "history" }> = [
@@ -94,27 +96,14 @@ export default function LibraryScreen() {
   };
 
   const sort = SORTS.find((s) => s.value === filters.sort) ?? SORTS[0];
-  const cycleSort = () => setFilters({ sort: SORTS[(SORTS.indexOf(sort) + 1) % SORTS.length].value });
+  const [sorting, setSorting] = useState(false);
   const filtered = !home;
   const noAccess = access && !access.allFilesAccess;
 
   const header = (
-    <View style={{ paddingTop: insets.top + spacing.sm, gap: spacing.md, paddingBottom: spacing.sm }}>
-      <View style={styles.titleRow}>
-        <View style={{ flex: 1 }}>
-          <Text accessibilityRole="header" style={[styles.title, { color: t.text }]}>
-            Library
-          </Text>
-          <Text style={[type.small, { color: t.textMuted }]}>
-            {stats ? plural(stats.available, "document") : " "}
-            {stats?.missing ? ` · ${stats.missing + stats.revoked} unavailable` : ""}
-          </Text>
-        </View>
-        <IconButton icon="refresh" label="Rescan device" onPress={() => void scanLibrary()} />
-      </View>
+    <View style={{ gap: spacing.md, paddingBottom: spacing.sm, paddingTop: spacing.xs }}>
       <FocusCard />
       <View style={{ paddingHorizontal: spacing.lg, gap: spacing.md }}>
-        <SearchBar value={text} onChangeText={setText} />
         <ScanBanner onDismiss={() => setState({ lastSummary: null, scanError: null })} />
         {noAccess && !scanning ? (
           <Pressable
@@ -206,9 +195,9 @@ export default function LibraryScreen() {
         </Text>
         {filters.view !== "recent" ? (
           <Pressable
-            onPress={cycleSort}
+            onPress={() => setSorting(true)}
             accessibilityRole="button"
-            accessibilityLabel={`Sort: ${sort.label}. Tap to change`}
+            accessibilityLabel={`Sort: ${sort.label}. Tap to choose`}
             style={styles.sort}
             hitSlop={8}
           >
@@ -255,14 +244,49 @@ export default function LibraryScreen() {
   }, [docs, scanning, filtered, filters.view, filters.text]);
 
   return (
-    <DocumentBrowser
-      documents={docs ?? []}
-      header={header}
-      empty={empty}
-      layout={filters.layout}
-      refreshing={false}
-      onRefresh={() => void scanLibrary()}
-    />
+    <View style={{ flex: 1 }}>
+      {/* Pinned: the title and search stay put while the library scrolls underneath. */}
+      <View style={{ paddingTop: insets.top + spacing.sm, gap: spacing.sm, paddingBottom: spacing.sm }}>
+        <View style={styles.titleRow}>
+          <View style={{ flex: 1 }}>
+            <Text accessibilityRole="header" style={[styles.title, { color: t.text }]}>
+              Library
+            </Text>
+            <Text style={[type.small, { color: t.textMuted }]}>
+              {stats ? plural(stats.available, "document") : " "}
+              {stats?.missing ? ` · ${stats.missing + stats.revoked} unavailable` : ""}
+            </Text>
+          </View>
+          <IconButton icon="refresh" label="Rescan device" onPress={() => void scanLibrary()} />
+        </View>
+        <View style={{ paddingHorizontal: spacing.lg }}>
+          <SearchBar value={text} onChangeText={setText} />
+        </View>
+      </View>
+      <DocumentBrowser
+        documents={docs ?? []}
+        header={header}
+        empty={empty}
+        layout={filters.layout}
+        refreshing={false}
+        onRefresh={() => void scanLibrary()}
+      />
+      <Sheet visible={sorting} onClose={() => setSorting(false)} title="Sort by">
+        {SORTS.map((o) => (
+          <ListRow
+            key={o.value}
+            icon={o.icon}
+            iconColor={o.value === sort.value ? t.primary : undefined}
+            title={o.label}
+            onPress={() => {
+              setFilters({ sort: o.value });
+              setSorting(false);
+            }}
+            right={o.value === sort.value ? <Icon name="check" color={t.primary} /> : undefined}
+          />
+        ))}
+      </Sheet>
+    </View>
   );
 }
 

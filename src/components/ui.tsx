@@ -171,8 +171,11 @@ export function ListRow({
   onPress,
   onLongPress,
   right,
+  leading,
   indent = 0,
 }: {
+  /** Custom leading visual (e.g. covers); replaces the icon. */
+  leading?: ReactNode;
   icon?: IconName;
   iconColor?: string;
   title: string;
@@ -192,7 +195,7 @@ export function ListRow({
       android_ripple={{ color: t.border }}
       style={[styles.listRow, { paddingLeft: spacing.lg + indent * 20 }]}
     >
-      {icon ? <Icon name={icon} color={iconColor ?? t.textMuted} /> : null}
+      {leading ?? (icon ? <Icon name={icon} color={iconColor ?? t.textMuted} /> : null)}
       <View style={{ flex: 1 }}>
         <Text style={[styles.listTitle, { color: t.text }]} numberOfLines={2}>
           {title}

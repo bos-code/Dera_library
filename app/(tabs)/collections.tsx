@@ -4,7 +4,9 @@ import { Alert, FlatList, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { PromptSheet } from "@/components/PromptSheet";
 import { Button, EmptyState, Icon, IconButton, ListRow } from "@/components/ui";
-import { buildTree, createCollection, flattenTree, getAllCollections } from "@/db/collections";
+import { CoverStack } from "@/components/CoverStack";
+import { buildTree, createCollection, flattenTree, getAllCollections, getCollectionPreviewIds } from "@/db/collections";
+import { getDocumentsByIds } from "@/db/documents";
 import { plural } from "@/lib/format";
 import { useQuery } from "@/lib/useQuery";
 import { notifyLibraryChanged } from "@/state/store";
@@ -16,6 +18,11 @@ export default function CollectionsScreen() {
   const [creating, setCreating] = useState(false);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const { data } = useQuery(getAllCollections, []);
+  const { data: previews } = useQuery(async () => {
+    const ids = await getCollectionPreviewIds(3);
+    const docs = new Map((await getDocumentsByIds([...new Set([...ids.values()].flat())])).map((d) => [d.id, d]));
+    return new Map([...ids].map(([cid, docIds]) => [cid, docIds.flatMap((id) => docs.get(id) ?? [])]));
+  }, []);
 
   const rows = useMemo(() => {
     const flat = flattenTree(buildTree(data ?? []));
@@ -57,8 +64,13 @@ export default function CollectionsScreen() {
         renderItem={({ item }) => (
           <ListRow
             indent={item.depth}
-            icon={item.depth === 0 ? "bookshelf" : "folder-outline"}
-            iconColor={item.depth === 0 ? t.primary : t.textMuted}
+            leading={
+              <CoverStack
+                documents={previews?.get(item.id) ?? []}
+                fallbackIcon={item.depth === 0 ? "bookshelf" : "folder-outline"}
+                fallbackColor={item.depth === 0 ? t.primary : t.textMuted}
+              />
+            }
             title={item.name}
             subtitle={`${plural(item.totalCount, "document")}${item.children.length ? ` · ${plural(item.children.length, "sub-collection")}` : ""}`}
             onPress={() => router.push({ pathname: "/collection/[id]", params: { id: item.id } })}

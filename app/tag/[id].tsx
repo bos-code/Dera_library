@@ -6,7 +6,8 @@ import { PromptSheet } from "@/components/PromptSheet";
 import { Sheet } from "@/components/Sheet";
 import { EmptyState, IconButton, ListRow } from "@/components/ui";
 import { searchDocuments } from "@/db/documents";
-import { deleteTag, getTag, renameTag, untagDocument } from "@/db/tags";
+import { deleteTag, getTag, renameTag, restoreTag, snapshotTag, tagDocuments, untagDocument } from "@/db/tags";
+import { showUndo } from "@/services/toast";
 import { plural } from "@/lib/format";
 import { useQuery } from "@/lib/useQuery";
 import { notifyLibraryChanged } from "@/state/store";
@@ -21,20 +22,14 @@ export default function TagScreen() {
 
   if (tag === null) return <EmptyState icon="tag-off-outline" title="Tag not found" message="It may have been deleted." />;
 
-  const confirmDelete = () => {
+  // No confirmation: deleting is instant and undoable from the message bar.
+  const remove = async () => {
     setDialog(null);
-    Alert.alert(`Delete tag “${tag?.name}”?`, "The tag is removed from all documents. Documents themselves are not affected.", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Delete",
-        style: "destructive",
-        onPress: async () => {
-          await deleteTag(id);
-          notifyLibraryChanged();
-          router.back();
-        },
-      },
-    ]);
+    const snapshot = await snapshotTag(id);
+    await deleteTag(id);
+    notifyLibraryChanged();
+    router.back();
+    if (snapshot) showUndo(`Tag “${snapshot.tag.name}” deleted`, () => restoreTag(snapshot));
   };
 
   return (
@@ -63,6 +58,7 @@ export default function TagScreen() {
             label: "Remove this tag",
             run: async (ids) => {
               for (const docId of ids) await untagDocument(id, docId);
+              showUndo(`Tag removed from ${plural(ids.length, "document")}`, () => tagDocuments(id, ids));
             },
           },
         ]}
@@ -74,7 +70,7 @@ export default function TagScreen() {
           iconColor={t.danger}
           title="Delete tag"
           subtitle={docs ? `Used on ${plural(docs.length, "document")}` : undefined}
-          onPress={confirmDelete}
+          onPress={remove}
         />
       </Sheet>
       <PromptSheet

@@ -14,11 +14,15 @@ import {
   getAllCollections,
   moveCollection,
   removeDocumentsFromCollection,
+  addDocumentsToCollection,
+  restoreCollection,
+  snapshotCollection,
   renameCollection,
   type CollectionNode,
 } from "@/db/collections";
 import { searchDocuments } from "@/db/documents";
 import { plural } from "@/lib/format";
+import { showUndo } from "@/services/toast";
 import { useDebounced, useQuery } from "@/lib/useQuery";
 import { notifyLibraryChanged } from "@/state/store";
 import { font, spacing, useTheme } from "@/theme";
@@ -68,25 +72,16 @@ export default function CollectionScreen() {
     }
   };
 
-  const confirmDelete = () => {
+  // No confirmation: deleting is instant and undoable from the message bar. Documents are never touched.
+  const remove = async () => {
     setDialog(null);
     if (!node) return;
-    const nested = node.children.length ? ` and its ${plural(node.children.length, "sub-collection")}` : "";
-    Alert.alert(
-      `Delete “${node.name}”?`,
-      `This deletes the collection${nested}. Your documents and files are not deleted; they stay in your library.`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: () =>
-            act(async () => {
-              await deleteCollection(node.id);
-              router.back();
-            }),
-        },
-      ],
+    const snapshot = await snapshotCollection(node.id);
+    await act(() => deleteCollection(node.id));
+    router.back();
+    const nested = snapshot.collections.length - 1;
+    showUndo(`“${node.name}”${nested ? ` and ${plural(nested, "sub-collection")}` : ""} deleted`, () =>
+      restoreCollection(snapshot),
     );
   };
 
@@ -168,7 +163,12 @@ export default function CollectionScreen() {
           {
             icon: "folder-remove-outline",
             label: "Remove from this collection",
-            run: (ids) => removeDocumentsFromCollection(id, ids),
+            run: async (ids) => {
+              await removeDocumentsFromCollection(id, ids);
+              showUndo(`${plural(ids.length, "document")} removed from ${node?.name ?? "collection"}`, () =>
+                addDocumentsToCollection(id, ids),
+              );
+            },
           },
         ]}
       />
@@ -181,7 +181,7 @@ export default function CollectionScreen() {
           iconColor={t.danger}
           title="Delete collection"
           subtitle="Documents are never deleted"
-          onPress={confirmDelete}
+          onPress={remove}
         />
       </Sheet>
       <PromptSheet

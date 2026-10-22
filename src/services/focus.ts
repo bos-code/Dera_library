@@ -2,6 +2,7 @@ import { PermissionsAndroid, Platform } from "react-native";
 import { getDocument } from "@/db/documents";
 import { getMeta, setMeta } from "@/db/database";
 import { addSession } from "@/db/reading";
+import { haptic } from "@/lib/haptics";
 import { displayTitle } from "@/lib/title";
 import { isScannerAvailable, scanner } from "@/native/scanner";
 import { getState, notifyLibraryChanged, setState, type FocusSession } from "@/state/store";
@@ -85,6 +86,7 @@ export async function stopFocus(save = true): Promise<number> {
   if (!focus || !save) return 0;
   const durationMs = Math.min(Date.now() - focus.startedAt, MAX_MS);
   if (durationMs < 30_000) return 0;
+  haptic.success();
   await addSession({
     documentId: focus.documentId,
     documentName: focus.documentName,

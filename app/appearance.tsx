@@ -191,6 +191,25 @@ export default function AppearanceScreen() {
         <Chip label="Compact" selected={a.density === "compact"} onPress={() => updateAppearance({ density: "compact" })} />
       </View>
 
+      <SectionTitle>Tapping a document</SectionTitle>
+      <View style={styles.row}>
+        <Chip
+          label="Opens it"
+          icon="open-in-new"
+          selected={a.tapAction === "open"}
+          onPress={() => updateAppearance({ tapAction: "open" })}
+        />
+        <Chip
+          label="Shows details"
+          icon="information-outline"
+          selected={a.tapAction === "details"}
+          onPress={() => updateAppearance({ tapAction: "details" })}
+        />
+      </View>
+      <Text style={[type.tiny, styles.hint, { color: t.textFaint }]}>
+        The other action stays one tap away on the ⓘ button. Long-press always selects.
+      </Text>
+
       <View style={{ padding: spacing.lg }}>
         <Button label="Reset to defaults" icon="restore" variant="ghost" onPress={() => updateAppearance(DEFAULT_APPEARANCE)} />
       </View>

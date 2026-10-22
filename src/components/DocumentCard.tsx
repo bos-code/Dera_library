@@ -14,12 +14,14 @@ interface Props {
   selecting?: boolean;
   onPress: (doc: DocumentRecord) => void;
   onLongPress?: (doc: DocumentRecord) => void;
+  /** Shown as an ⓘ button when tapping the card opens the file. */
+  onInfo?: (doc: DocumentRecord) => void;
   /** Hide size line, e.g. on compact shelves. */
   compact?: boolean;
 }
 
 /** Grid/shelf tile: cover on top, title underneath. */
-function DocumentCardImpl({ doc, width, selected, selecting, onPress, onLongPress, compact }: Props) {
+function DocumentCardImpl({ doc, width, selected, selecting, onPress, onLongPress, onInfo, compact }: Props) {
   const t = useTheme();
   const title = displayTitle(doc.name);
   return (
@@ -41,6 +43,17 @@ function DocumentCardImpl({ doc, width, selected, selecting, onPress, onLongPres
           <View style={[styles.badge, styles.fav, { backgroundColor: t.surface }]}>
             <Icon name="star" size={14} color={t.warning} />
           </View>
+        ) : null}
+        {onInfo && !selecting ? (
+          <Pressable
+            onPress={() => onInfo(doc)}
+            accessibilityRole="button"
+            accessibilityLabel={`Details for ${title}`}
+            hitSlop={10}
+            style={[styles.badge, styles.info, { backgroundColor: t.surface }]}
+          >
+            <Icon name="information-variant" size={14} color={t.textMuted} />
+          </Pressable>
         ) : null}
         {selecting ? (
           <View
@@ -70,5 +83,6 @@ const styles = StyleSheet.create({
   meta: { ...type.tiny, marginTop: -4 },
   badge: { position: "absolute", width: 24, height: 24, borderRadius: 12, alignItems: "center", justifyContent: "center" },
   fav: { right: spacing.xs, top: spacing.xs },
+  info: { right: spacing.xs, bottom: spacing.xs },
   check: { left: spacing.xs, top: spacing.xs, borderWidth: 2 },
 });

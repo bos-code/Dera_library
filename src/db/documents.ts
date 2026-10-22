@@ -67,6 +67,19 @@ export async function getShelfCounts(now = Date.now()): Promise<Record<SmartShel
   return Object.fromEntries(SMART_SHELVES.map((shelf) => [shelf, row?.[shelf] ?? 0])) as Record<SmartShelf, number>;
 }
 
+/** ORDER BY for each sort; ties broken by name so results never shuffle between queries. */
+const SORT_SQL: Record<SortMode, string> = {
+  "modified-desc": "d.modified_at DESC, d.name COLLATE NOCASE",
+  "modified-asc": "d.modified_at ASC, d.name COLLATE NOCASE",
+  "name-asc": "d.name COLLATE NOCASE ASC",
+  "name-desc": "d.name COLLATE NOCASE DESC",
+  "size-desc": "d.size DESC, d.name COLLATE NOCASE",
+  "size-asc": "d.size ASC, d.name COLLATE NOCASE",
+  // Never-opened documents sink to the bottom, newest first among them.
+  "opened-desc": "d.last_opened_at IS NULL, d.last_opened_at DESC, d.modified_at DESC",
+  "added-desc": "d.first_seen_at DESC, d.name COLLATE NOCASE",
+};
+
 let ftsAvailable: boolean | null = null;
 
 async function useFts(): Promise<boolean> {
@@ -125,14 +138,7 @@ export async function searchDocuments(q: DocumentQuery = {}): Promise<DocumentRe
       }
     }
   }
-  const order =
-    q.view === "recent"
-      ? "d.last_opened_at DESC"
-      : q.sort === "name-asc"
-        ? "d.name COLLATE NOCASE ASC"
-        : q.sort === "size-desc"
-          ? "d.size DESC"
-          : "d.modified_at DESC";
+  const order = q.view === "recent" ? SORT_SQL["opened-desc"] : SORT_SQL[q.sort ?? "modified-desc"];
   const sql = `${SELECT_DOCUMENT} ${where.length ? `WHERE ${where.join(" AND ")}` : ""} ORDER BY ${order}${
     q.limit ? ` LIMIT ${Math.floor(q.limit)}` : ""
   }`;

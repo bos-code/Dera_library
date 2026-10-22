@@ -5,7 +5,7 @@ import { displayTitle } from "@/lib/title";
 import { radius, spacing, type, useTheme } from "@/theme";
 import type { DocumentRecord } from "@/types/document";
 import { DocumentCover } from "./DocumentCover";
-import { Icon } from "./ui";
+import { Icon, IconButton } from "./ui";
 
 interface Props {
   doc: DocumentRecord;
@@ -13,9 +13,11 @@ interface Props {
   selecting?: boolean;
   onPress: (doc: DocumentRecord) => void;
   onLongPress?: (doc: DocumentRecord) => void;
+  /** Shown as an ⓘ button when tapping the row opens the file instead of the details. */
+  onInfo?: (doc: DocumentRecord) => void;
 }
 
-function DocumentRowImpl({ doc, selected, selecting, onPress, onLongPress }: Props) {
+function DocumentRowImpl({ doc, selected, selecting, onPress, onLongPress, onInfo }: Props) {
   const t = useTheme();
   const unavailable = doc.status !== "available";
   const title = displayTitle(doc.name);
@@ -32,7 +34,13 @@ function DocumentRowImpl({ doc, selected, selecting, onPress, onLongPress }: Pro
       accessibilityLabel={`${title}, ${doc.extension.toUpperCase()}. ${meta}${doc.folder ? `. In ${doc.folder}` : ""}${doc.isFavorite ? ". Favorite" : ""}${
         unavailable ? `. ${doc.status === "missing" ? "Missing" : "No access"}` : ""
       }`}
-      accessibilityHint={selecting ? "Toggles selection" : "Opens document details. Long press to select"}
+      accessibilityHint={
+        selecting
+          ? "Toggles selection"
+          : onInfo
+            ? "Opens the document. Long press to select"
+            : "Opens document details. Long press to select"
+      }
       style={[styles.row, compact && styles.compact, selected && { backgroundColor: t.primarySoft }]}
     >
       {selecting ? (
@@ -67,6 +75,9 @@ function DocumentRowImpl({ doc, selected, selecting, onPress, onLongPress }: Pro
           </Text>
         ) : null}
       </View>
+      {onInfo && !selecting ? (
+        <IconButton icon="information-outline" label={`Details for ${title}`} onPress={() => onInfo(doc)} color={t.textFaint} />
+      ) : null}
     </Pressable>
   );
 }
@@ -78,7 +89,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.md,
-    paddingHorizontal: spacing.lg,
+    paddingLeft: spacing.lg,
+    paddingRight: spacing.xs,
     paddingVertical: 10,
     minHeight: 76,
   },
