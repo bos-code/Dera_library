@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Dera Library",
-    "slug": "dera-library",
+    "slug": "deralib",
     "version": "0.2.0",
     "orientation": "default",
     "scheme": "deralibrary",
