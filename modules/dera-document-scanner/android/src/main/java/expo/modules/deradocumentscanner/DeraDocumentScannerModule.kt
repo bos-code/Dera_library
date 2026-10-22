@@ -63,6 +63,8 @@ class DeraDocumentScannerModule : Module() {
   private var pendingPromise: Promise? = null
   private val thumbnails by lazy { ThumbnailCache(context) }
   private val textExtractor by lazy { TextExtractor(context) }
+  private val fileOps by lazy { FileOps(context) }
+  private val shareAndPrint by lazy { ShareAndPrint(context) }
   private var pendingRequest = 0
 
   private val context: Context
@@ -71,7 +73,7 @@ class DeraDocumentScannerModule : Module() {
   override fun definition() = ModuleDefinition {
     Name("DeraDocumentScanner")
 
-    Events("onScanProgress")
+    Events("onScanProgress", "onShare")
 
     Function("getStorageAccess") {
       val sdk = Build.VERSION.SDK_INT
@@ -166,6 +168,67 @@ class DeraDocumentScannerModule : Module() {
         mapOf("status" to r.status, "text" to r.text, "pages" to r.pages, "ocr" to r.ocr)
       }
     }
+
+    // region Manage files (real file operations; see FileOps for the safety rules)
+
+    Function("getStorageRoots") { fileOps.roots() }
+
+    AsyncFunction("listDirectories") Coroutine { path: String -> withContext(Dispatchers.IO) { fileOps.listDirectories(path) } }
+
+    AsyncFunction("describeFile") Coroutine { path: String -> withContext(Dispatchers.IO) { fileOps.describe(path) } }
+
+    AsyncFunction("renameFile") Coroutine { path: String, name: String, conflict: String ->
+      withContext(Dispatchers.IO) { fileOps.rename(path, name, conflict).toMap() }
+    }
+
+    AsyncFunction("moveFile") Coroutine { path: String, destDir: String, conflict: String ->
+      withContext(Dispatchers.IO) { fileOps.move(path, destDir, conflict).toMap() }
+    }
+
+    AsyncFunction("createFolder") Coroutine { parent: String, name: String ->
+      withContext(Dispatchers.IO) { fileOps.createFolder(parent, name).toMap() }
+    }
+
+    AsyncFunction("trashFile") Coroutine { path: String -> withContext(Dispatchers.IO) { fileOps.trash(path).toMap() } }
+
+    AsyncFunction("listTrash") Coroutine { -> withContext(Dispatchers.IO) { fileOps.listTrash() } }
+
+    AsyncFunction("restoreFromTrash") Coroutine { path: String, conflict: String ->
+      withContext(Dispatchers.IO) { fileOps.restore(path, conflict).toMap() }
+    }
+
+    AsyncFunction("deleteFromTrash") Coroutine { path: String -> withContext(Dispatchers.IO) { fileOps.deletePermanently(path).toMap() } }
+
+    AsyncFunction("emptyTrash") Coroutine { olderThanMs: Double -> withContext(Dispatchers.IO) { fileOps.emptyTrash(olderThanMs.toLong()) } }
+
+    // endregion
+
+    // region Share and print
+
+    Function("shareDocuments") { uris: List<String>, mimeTypes: List<String> ->
+      shareAndPrint.share(appContext.currentActivity, uris, mimeTypes)
+    }
+
+    Function("takeSharedUris") { shareAndPrint.takeSharedUris(appContext.currentActivity) }
+
+    AsyncFunction("saveSharedFile") Coroutine { uri: String -> withContext(Dispatchers.IO) { shareAndPrint.saveShared(uri) } }
+
+    AsyncFunction("printPdf") { uri: String, jobName: String, promise: Promise ->
+      val activity = appContext.currentActivity
+      if (activity == null) {
+        promise.resolve("unavailable")
+      } else {
+        activity.runOnUiThread { promise.resolve(shareAndPrint.printPdf(activity, uri, jobName)) }
+      }
+    }
+
+    OnNewIntent { intent ->
+      // Dera was already open when something was shared to it.
+      appContext.currentActivity?.intent = intent
+      if (intent.action == Intent.ACTION_SEND || intent.action == Intent.ACTION_SEND_MULTIPLE) sendEvent("onShare", mapOf<String, Any?>())
+    }
+
+    // endregion
 
     AsyncFunction("clearThumbnails") Coroutine { ->
       withContext(Dispatchers.IO) { thumbnails.clear() }

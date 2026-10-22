@@ -9,11 +9,124 @@
     "backgroundColor": "#F7F5F0",
     "android": {
       "package": "com.boscode.deralibrary",
-      "allowBackup": true
+      "allowBackup": true,
+      "intentFilters": [
+        {
+          "action": "SEND",
+          "category": [
+            "DEFAULT"
+          ],
+          "data": [
+            {
+              "mimeType": "application/pdf"
+            },
+            {
+              "mimeType": "application/msword"
+            },
+            {
+              "mimeType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            },
+            {
+              "mimeType": "application/vnd.ms-excel"
+            },
+            {
+              "mimeType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            },
+            {
+              "mimeType": "application/vnd.ms-powerpoint"
+            },
+            {
+              "mimeType": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+            },
+            {
+              "mimeType": "application/epub+zip"
+            },
+            {
+              "mimeType": "application/rtf"
+            },
+            {
+              "mimeType": "application/vnd.oasis.opendocument.text"
+            },
+            {
+              "mimeType": "application/vnd.oasis.opendocument.spreadsheet"
+            },
+            {
+              "mimeType": "application/vnd.oasis.opendocument.presentation"
+            },
+            {
+              "mimeType": "text/plain"
+            },
+            {
+              "mimeType": "text/csv"
+            },
+            {
+              "mimeType": "text/markdown"
+            }
+          ]
+        },
+        {
+          "action": "SEND_MULTIPLE",
+          "category": [
+            "DEFAULT"
+          ],
+          "data": [
+            {
+              "mimeType": "application/pdf"
+            },
+            {
+              "mimeType": "application/msword"
+            },
+            {
+              "mimeType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            },
+            {
+              "mimeType": "application/vnd.ms-excel"
+            },
+            {
+              "mimeType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            },
+            {
+              "mimeType": "application/vnd.ms-powerpoint"
+            },
+            {
+              "mimeType": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+            },
+            {
+              "mimeType": "application/epub+zip"
+            },
+            {
+              "mimeType": "application/rtf"
+            },
+            {
+              "mimeType": "application/vnd.oasis.opendocument.text"
+            },
+            {
+              "mimeType": "application/vnd.oasis.opendocument.spreadsheet"
+            },
+            {
+              "mimeType": "application/vnd.oasis.opendocument.presentation"
+            },
+            {
+              "mimeType": "text/plain"
+            },
+            {
+              "mimeType": "text/csv"
+            },
+            {
+              "mimeType": "text/markdown"
+            }
+          ]
+        }
+      ]
     },
     "plugins": [
       "expo-router",
-      ["expo-sqlite", { "enableFTS": true }]
+      [
+        "expo-sqlite",
+        {
+          "enableFTS": true
+        }
+      ]
     ],
     "extra": {
       "eas": {

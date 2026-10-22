@@ -216,6 +216,15 @@ export default function SettingsScreen() {
           onPress={() => router.push("/missing")}
           right={<Icon name="chevron-right" color={t.textFaint} />}
         />
+        {access?.allFilesAccess ? (
+          <ListRow
+            icon="trash-can-outline"
+            title="Trash"
+            subtitle="Files moved to trash from Dera (kept 30 days)"
+            onPress={() => router.push("/trash")}
+            right={<Icon name="chevron-right" color={t.textFaint} />}
+          />
+        ) : null}
         <ListRow
           icon="harddisk"
           title="Storage insights"

@@ -20,6 +20,9 @@ import { refreshAccess } from "@/services/access";
 import { loadAppearance } from "@/services/appearance";
 import { loadFocus } from "@/services/focus";
 import { finishReading } from "@/services/readingSession";
+import { emptyOldTrash } from "@/services/fileManager";
+import { handleIncomingShares } from "@/services/shareIn";
+import { isScannerAvailable, scanner } from "@/native/scanner";
 import { pauseTextIndexer, runTextIndexer } from "@/services/textIndexer";
 import { ReadingPromptSheet } from "@/components/ReadingSheets";
 import { ToastBar } from "@/components/ToastBar";
@@ -62,6 +65,7 @@ function ThemedStack() {
         <Stack.Screen name="inbox" options={{ title: "Inbox" }} />
         <Stack.Screen name="saved/[id]" options={{ title: "" }} />
         <Stack.Screen name="storage" options={{ title: "Storage" }} />
+        <Stack.Screen name="trash" options={{ title: "Trash" }} />
       </Stack>
       <ReadingPromptSheet />
       <ToastBar />
@@ -101,7 +105,11 @@ export default function RootLayout() {
       await loadFocus();
       void finishReading();
       setReady(true);
-      if (onboarded === "1") void runTextIndexer();
+      if (onboarded === "1") {
+        void runTextIndexer();
+        void handleIncomingShares();
+        void emptyOldTrash();
+      }
     })().catch((e: unknown) => setError(e instanceof Error ? e.message : String(e)));
 
     // Access can change in system settings while the app is in the background.
@@ -111,13 +119,21 @@ export default function RootLayout() {
         return;
       }
       void finishReading();
-      if (getState().onboarded) void runTextIndexer();
+      if (getState().onboarded) {
+        void runTextIndexer();
+        void handleIncomingShares();
+      }
       const before = getState().access?.allFilesAccess;
       const after = refreshAccess()?.allFilesAccess;
       // Returning from system settings with new access: find the newly visible documents right away.
       if (!before && after && getState().onboarded) void scanLibrary();
     });
-    return () => sub.remove();
+    // Something shared to Dera while it was already open.
+    const shareSub = isScannerAvailable ? scanner().addListener("onShare", () => void handleIncomingShares()) : null;
+    return () => {
+      sub.remove();
+      shareSub?.remove();
+    };
   }, []);
 
   return (

@@ -3,6 +3,8 @@
 
   <!-- Android 12 and below: read shared storage (MediaStore + file walk on Android 10 with legacy storage). -->
   <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
+  <!-- Android 9 and below: save documents shared to Dera into Documents/Dera Library (10+ uses MediaStore, no permission). -->
+  <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
   <!-- Android 11+: optional "All files access". The user grants it in system settings; the app works without it via SAF. -->
   <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" tools:ignore="ScopedStorage" />
 

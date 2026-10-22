@@ -11,6 +11,7 @@ import { plural } from "@/lib/format";
 import { haptic } from "@/lib/haptics";
 import { useTabBarHeight } from "@/lib/useTabBarHeight";
 import { activateDocument, showDetails } from "@/services/documentActions";
+import { canManageFiles, moveDocumentFiles, shareDocuments, trashDocumentFiles } from "@/services/fileManager";
 import { notifyLibraryChanged, useAppState } from "@/state/store";
 import { corner, spacing, type, useTheme } from "@/theme";
 import type { StackInfo } from "@/lib/versions";
@@ -18,6 +19,7 @@ import type { DocumentRecord } from "@/types/document";
 import { CollectionPickerSheet } from "./CollectionPickerSheet";
 import { DocumentCard } from "./DocumentCard";
 import { DocumentRow } from "./DocumentRow";
+import { FolderPickerSheet } from "./FolderPickerSheet";
 import { TagPickerSheet } from "./TagPickerSheet";
 import { Sheet } from "./Sheet";
 import { IconButton, ListRow, type IconName } from "./ui";
@@ -57,7 +59,7 @@ export function DocumentBrowser({
   const insets = useSafeAreaInsets();
   const tabBarHeight = useTabBarHeight();
   const [selected, setSelected] = useState<Set<number>>(new Set());
-  const [sheet, setSheet] = useState<"collections" | "tags" | "more" | null>(null);
+  const [sheet, setSheet] = useState<"collections" | "tags" | "more" | "move" | null>(null);
   const selecting = selected.size > 0;
   const tapOpens = useAppState((s) => s.appearance.tapAction === "open");
   const { width: screenWidth } = useWindowDimensions();
@@ -116,7 +118,16 @@ export function DocumentBrowser({
   );
 
   // Actions available everywhere a document list is shown, behind the ⋯ button.
+  const selectedDocs = documents.filter((d) => selected.has(d.id));
+  const manageable = selectedDocs.length > 0 && selectedDocs.every(canManageFiles);
   const moreActions: BulkAction[] = [
+    { icon: "share-variant-outline", label: "Share", run: async () => shareDocuments(selectedDocs) },
+    ...(manageable
+      ? ([
+          { icon: "file-move-outline", label: "Move files to folder…", run: async () => setSheet("move") },
+          { icon: "trash-can-outline", label: "Move files to trash", run: () => trashDocumentFiles(selectedDocs) },
+        ] as BulkAction[])
+      : []),
     ...(["reading", "to-read", "done"] as const).map((status) => ({
       icon: (status === "reading"
         ? "book-open-variant"
@@ -230,7 +241,8 @@ export function DocumentBrowser({
               setSheet(null);
               void run(async () => {
                 await a.run(ids);
-                setSelected(new Set());
+                // Actions that open another sheet keep the selection until they finish.
+                if (!a.label.endsWith("…")) setSelected(new Set());
               });
             }}
           />
@@ -249,6 +261,18 @@ export function DocumentBrowser({
           });
           setSheet(null);
           setSelected(new Set());
+        }}
+      />
+      <FolderPickerSheet
+        visible={sheet === "move"}
+        title={`Move ${plural(ids.length, "file")}`}
+        startPath={selectedDocs[0]?.path ? selectedDocs[0].path.slice(0, selectedDocs[0].path.lastIndexOf("/")) : null}
+        onClose={() => setSheet(null)}
+        onPick={async (dir) => {
+          setSheet(null);
+          const docs = selectedDocs;
+          setSelected(new Set());
+          await moveDocumentFiles(docs, dir);
         }}
       />
       <TagPickerSheet

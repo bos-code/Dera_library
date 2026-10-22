@@ -6,10 +6,11 @@ import { CollectionPickerSheet } from "@/components/CollectionPickerSheet";
 import { TagPickerSheet } from "@/components/TagPickerSheet";
 import { DocumentCover } from "@/components/DocumentCover";
 import { FocusSheet } from "@/components/Focus";
+import { FolderPickerSheet } from "@/components/FolderPickerSheet";
 import { NoteSheet } from "@/components/NoteSheet";
 import { PromptSheet } from "@/components/PromptSheet";
 import { LogReadingSheet } from "@/components/ReadingSheets";
-import { Button, Card, Chip, EmptyState, Icon, SectionTitle, type IconName } from "@/components/ui";
+import { Button, Card, Chip, EmptyState, Icon, ListRow, SectionTitle, type IconName } from "@/components/ui";
 import { getDocumentReading, setReadingStatus } from "@/db/reading";
 import { estimateReadingMs, formatDuration } from "@/lib/readingStats";
 import { getContentStatus } from "@/db/contentIndex";
@@ -25,6 +26,14 @@ import { docTitle } from "@/lib/title";
 import { useQuery } from "@/lib/useQuery";
 import { openDocument } from "@/services/open";
 import { showUndo } from "@/services/toast";
+import {
+  canManageFiles,
+  moveDocumentFiles,
+  printDocument,
+  renameDocumentFile,
+  shareDocuments,
+  trashDocumentFiles,
+} from "@/services/fileManager";
 import { scanLibrary } from "@/services/scan";
 import { notifyLibraryChanged } from "@/state/store";
 import { font, radius, spacing, type, useTheme } from "@/theme";
@@ -43,7 +52,7 @@ export default function DocumentScreen() {
   const [opening, setOpening] = useState(false);
   const [logging, setLogging] = useState(false);
   const [focusing, setFocusing] = useState(false);
-  const [editing, setEditing] = useState<"title" | "note" | null>(null);
+  const [editing, setEditing] = useState<"title" | "note" | "filename" | "move" | null>(null);
   const starScale = useSharedValue(1);
   const starStyle = useAnimatedStyle(() => ({ transform: [{ scale: starScale.value }] }));
 
@@ -333,6 +342,42 @@ export default function DocumentScreen() {
           </Text>
         </Pressable>
 
+        <SectionTitle>File</SectionTitle>
+        <Card style={{ marginHorizontal: spacing.lg }}>
+          <ListRow icon="share-variant-outline" title="Share" onPress={() => shareDocuments([doc])} />
+          <ListRow
+            icon="printer-outline"
+            title="Print"
+            subtitle={doc.extension.toLowerCase() === "pdf" ? undefined : "Prints from the app that opens it"}
+            onPress={() => void printDocument(doc, docTitle(doc), () => void open())}
+          />
+          {canManageFiles(doc) ? (
+            <>
+              <ListRow icon="rename-box-outline" title="Rename file" subtitle={doc.name} onPress={() => setEditing("filename")} />
+              <ListRow
+                icon="file-move-outline"
+                title="Move to…"
+                subtitle={doc.folder ?? undefined}
+                onPress={() => setEditing("move")}
+              />
+              <ListRow
+                icon="trash-can-outline"
+                iconColor={t.danger}
+                title="Move to trash"
+                subtitle="Restorable for 30 days"
+                onPress={async () => {
+                  await trashDocumentFiles([doc]);
+                  router.back();
+                }}
+              />
+            </>
+          ) : doc.path ? (
+            <Text style={[type.tiny, { color: t.textFaint, padding: spacing.lg }]}>
+              Turn on All files access in Settings to rename, move or delete files from Dera.
+            </Text>
+          ) : null}
+        </Card>
+
         <SectionTitle
           action={<Button label={doc.customTitle ? "Rename" : "Set title"} variant="ghost" onPress={() => setEditing("title")} />}
         >
@@ -361,6 +406,27 @@ export default function DocumentScreen() {
 
       <LogReadingSheet visible={logging} onClose={() => setLogging(false)} document={doc} />
       <FocusSheet visible={focusing} onClose={() => setFocusing(false)} document={doc} />
+      <PromptSheet
+        visible={editing === "filename"}
+        title="Rename file"
+        initialValue={doc.name.replace(/\.[^.]+$/, "")}
+        confirmLabel="Rename"
+        onClose={() => setEditing(null)}
+        onSubmit={async (name) => {
+          setEditing(null);
+          await renameDocumentFile(doc, name);
+        }}
+      />
+      <FolderPickerSheet
+        visible={editing === "move"}
+        title={`Move “${doc.name}”`}
+        startPath={doc.path ? doc.path.slice(0, doc.path.lastIndexOf("/")) : null}
+        onClose={() => setEditing(null)}
+        onPick={async (dir) => {
+          setEditing(null);
+          await moveDocumentFiles([doc], dir);
+        }}
+      />
       <NoteSheet
         visible={editing === "note"}
         initial={doc.note ?? ""}

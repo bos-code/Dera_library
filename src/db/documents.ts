@@ -366,3 +366,67 @@ export async function setPersonal(id: number, fields: { customTitle?: string | n
     await db.runAsync("UPDATE documents SET note=? WHERE id=?", fields.note?.trim() || null, id);
   }
 }
+
+/** Points a document at its new location after Dera moved or renamed the file; organization is kept. */
+export async function updateDocumentFile(
+  id: number,
+  item: {
+    uri: string;
+    path: string | null;
+    name: string;
+    extension: string;
+    size: number;
+    modifiedAt: number;
+    folder: string | null;
+  },
+): Promise<void> {
+  const db = await getDb();
+  await db.runAsync(
+    `UPDATE documents SET uri=?, path=?, name=?, extension=?, type=?, size=?, modified_at=?, folder=?, status='available',
+       missing_since=NULL, last_seen_at=? WHERE id=?`,
+    item.uri,
+    item.path,
+    item.name,
+    item.extension,
+    typeForExtension(item.extension),
+    Math.round(item.size),
+    Math.round(item.modifiedAt),
+    item.folder,
+    Date.now(),
+    id,
+  );
+}
+
+/** Adds documents Dera itself created (e.g. shared into the app); existing URIs are left alone. */
+export async function insertDocuments(items: ScannedItem[], options: { inbox: boolean }): Promise<number[]> {
+  const db = await getDb();
+  const now = Date.now();
+  const ids: number[] = [];
+  await db.withTransactionAsync(async () => {
+    for (const item of items) {
+      const r = await db.runAsync(
+        `INSERT OR IGNORE INTO documents(uri,path,name,extension,mime_type,size,modified_at,folder,type,source_id,status,first_seen_at,last_seen_at,inbox)
+         VALUES(?,?,?,?,?,?,?,?,?,'device','available',?,?,?)`,
+        item.uri,
+        item.path,
+        item.name,
+        item.extension,
+        item.mimeType,
+        Math.round(item.size),
+        Math.round(item.modifiedAt),
+        item.folder,
+        typeForExtension(item.extension),
+        now,
+        now,
+        options.inbox ? 1 : 0,
+      );
+      if (r.changes) ids.push(r.lastInsertRowId);
+    }
+  });
+  return ids;
+}
+
+export async function findDocumentByPath(path: string): Promise<DocumentRecord | null> {
+  const db = await getDb();
+  return db.getFirstAsync<DocumentRecord>(`${SELECT_DOCUMENT} WHERE d.path = ?`, path);
+}

@@ -23,9 +23,14 @@ import {
 import { searchDocuments } from "@/db/documents";
 import { plural } from "@/lib/format";
 import { showUndo } from "@/services/toast";
+import { printDocument, shareDocuments } from "@/services/fileManager";
+import { docTitle } from "@/lib/title";
 import { useDebounced, useQuery } from "@/lib/useQuery";
 import { notifyLibraryChanged } from "@/state/store";
 import { font, spacing, useTheme } from "@/theme";
+
+/** Each PDF opens Android's print dialog; more than this in one go is unkind. */
+const MAX_PRINT = 10;
 
 type Dialog = "menu" | "rename" | "new-child" | "move" | null;
 
@@ -58,6 +63,7 @@ export default function CollectionScreen() {
   const { data: docs } = useQuery(() => searchDocuments({ collectionId: id, text: query, sort: "name-asc" }), [id, query]);
 
   const node = tree?.node;
+  const pdfs = (docs ?? []).filter((d) => d.extension.toLowerCase() === "pdf" && d.status === "available");
   if (tree && !node) {
     return <EmptyState icon="folder-remove-outline" title="Collection not found" message="It may have been deleted." />;
   }
@@ -175,6 +181,29 @@ export default function CollectionScreen() {
 
       <Sheet visible={dialog === "menu"} onClose={() => setDialog(null)} title={node?.name ?? "Collection"}>
         <ListRow icon="pencil-outline" title="Rename" onPress={() => setDialog("rename")} />
+        {docs?.length ? (
+          <ListRow
+            icon="share-variant-outline"
+            title={`Share all (${docs.length})`}
+            onPress={() => {
+              setDialog(null);
+              shareDocuments(docs);
+            }}
+          />
+        ) : null}
+        {pdfs.length ? (
+          <ListRow
+            icon="printer-outline"
+            title={`Print PDFs (${Math.min(pdfs.length, MAX_PRINT)})`}
+            subtitle={
+              pdfs.length > MAX_PRINT ? `First ${MAX_PRINT}; each opens its own print dialog` : "Each opens its own print dialog"
+            }
+            onPress={async () => {
+              setDialog(null);
+              for (const d of pdfs.slice(0, MAX_PRINT)) await printDocument(d, docTitle(d), () => undefined);
+            }}
+          />
+        ) : null}
         <ListRow icon="folder-move-outline" title="Move to…" onPress={() => setDialog("move")} />
         <ListRow
           icon="delete-outline"
