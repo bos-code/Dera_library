@@ -1,11 +1,18 @@
-apply plugin: 'com.android.library'
-apply plugin: 'expo-module-gradle-plugin'
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
 
 group = 'expo.modules.deradocumentscanner'
 version = '0.2.0'
 
 android {
   namespace "expo.modules.deradocumentscanner"
+  defaultConfig {
+    versionCode 1
+    // Required by expo-module-gradle-plugin (SDK 57+) for its local Maven publication.
+    versionName "0.2.0"
+  }
 }
 
 dependencies {
